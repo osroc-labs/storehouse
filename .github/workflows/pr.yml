@@ -1,0 +1,39 @@
+name: PR
+
+# The one gate, pnpm check, on every pull request (stacked ones too) and on master itself, on Linux
+# and macOS: storehouse runs on people's Macs as much as in CI.
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A newer push to a PR cancels the run it replaces; runs on master all finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # nothing here pushes, so the token needn't sit in .git/config while dependencies run
+          persist-credentials: false
+      # pnpm's version comes from packageManager in package.json, which matches .tool-versions.
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .tool-versions
+          cache: pnpm
+      # The install runs prepare, which builds dist/ as a GitHub install would.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check

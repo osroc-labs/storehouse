@@ -1,0 +1,114 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // Only cheap rules with one right answer. Taste (how to branch, how to loop) lives in the skills
+  // and in review, not here. A disable names one rule and its reason:
+  // `// oxlint-disable-next-line <rule> -- <why>`. A stack's layers add their own plugins,
+  // ignores and overrides at the end of each list when they're scaffolded.
+  "plugins": ["typescript", "import", "unicorn", "oxc", "promise", "node"],
+  "jsPlugins": ["./lint/rules.ts"],
+  "categories": { "correctness": "error" },
+  "options": { "typeAware": true, "reportUnusedDisableDirectives": "error" },
+  "env": { "builtin": true, "es2024": true },
+  "ignorePatterns": [
+    ".claude/",
+    "**/dist/",
+    "coverage/",
+    // the brand kit, kept as delivered; its build script makes the assets beside it
+    "site/brand/",
+    "site/.astro/"
+  ],
+  "rules": {
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "no-var": "error",
+    "prefer-const": "error",
+    "object-shorthand": "error",
+    "no-nested-ternary": "error",
+    "no-param-reassign": ["error", { "props": true }],
+    "no-shadow": "error",
+    "no-unused-vars": ["error", { "ignoreRestSiblings": true }],
+    "array-callback-return": "error",
+    "import/no-cycle": "error",
+    "import/no-self-import": "error",
+    // Named exports only, so a thing has one name everywhere. Tools that load a default are excepted below.
+    "import/no-default-export": "error",
+    "oxc/no-barrel-file": ["error", { "threshold": 0 }],
+    "typescript/consistent-type-definitions": ["error", "type"],
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error",
+    // `as const` and `satisfies` only: a cast switches the checker off exactly where it's needed.
+    "typescript/consistent-type-assertions": [
+      "error",
+      { "assertionStyle": "never" }
+    ],
+    "typescript/ban-ts-comment": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/no-unnecessary-condition": "error",
+    "typescript/no-deprecated": "error",
+    "typescript/only-throw-error": "error",
+    "typescript/require-await": "error",
+    "typescript/return-await": "error",
+    // An `any` (JSON.parse, a loose response) can't leak past a Zod parse.
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/restrict-template-expressions": [
+      "error",
+      { "allowNumber": true }
+    ],
+    // The project's own rules (lint/rules.ts).
+    "local/format-in-one-place": "error",
+    "unicorn/filename-case": ["error", { "case": "kebabCase" }],
+    "no-console": "off",
+    "no-else-return": ["error", { "allowElseIf": false }],
+    "no-use-before-define": "error",
+    "max-depth": "error",
+    "no-lonely-if": "error",
+    "no-unneeded-ternary": "error",
+    "no-useless-concat": "error",
+    "no-useless-return": "error",
+    "preserve-caught-error": "error",
+    "typescript/await-thenable": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "arrow-body-style": ["error", "as-needed"],
+    "oxc/branches-sharing-code": "error",
+    "oxc/no-accumulating-spread": "error",
+    "unicorn/consistent-function-scoping": "error",
+    "unicorn/no-object-as-default-parameter": "error",
+    "unicorn/no-useless-promise-resolve-reject": "error",
+    "unicorn/prefer-array-find": "error",
+    "unicorn/prefer-array-flat-map": "error",
+    "unicorn/prefer-array-some": "error",
+    "unicorn/prefer-set-has": "error",
+    "typescript/no-unnecessary-boolean-literal-compare": "error",
+    "typescript/no-unnecessary-template-expression": "error",
+    "typescript/no-unnecessary-type-arguments": "error",
+    "typescript/no-unnecessary-type-conversion": "error",
+    "typescript/no-unnecessary-type-parameters": "error",
+    "typescript/prefer-promise-reject-errors": "error",
+    "typescript/restrict-plus-operands": "error"
+  },
+  "overrides": [
+    {
+      // node:test's describe and it return promises the runner awaits, and a test's helpers may close over its setup.
+      "files": ["**/*.test.ts"],
+      "rules": {
+        "typescript/no-floating-promises": "off",
+        "unicorn/consistent-function-scoping": "off"
+      }
+    },
+    {
+      // The one module that formats what a person reads.
+      "files": ["src/utils/format.ts"],
+      "rules": { "local/format-in-one-place": "off" }
+    },
+    {
+      // Tools that load a module's default export.
+      "files": ["*.config.ts", "**/*.config.ts", "lint/rules.ts"],
+      "rules": { "import/no-default-export": "off" }
+    }
+  ]
+}

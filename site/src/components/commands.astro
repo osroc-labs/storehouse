@@ -1,0 +1,79 @@
+---
+// The commands as a printed form: each from the CLI's own --help (src/generated/cli-docs.json).
+import docs from '../generated/cli-docs.json';
+---
+
+<ul class="form">
+  {
+    docs.commands.map((command) => (
+      <li>
+        <dl>
+          <div class="field">
+            <dt class="label">Command</dt>
+            <dd>
+              <code>{command.usage}</code>
+            </dd>
+          </div>
+          <div class="field">
+            <dt class="label">What it does</dt>
+            <dd>{command.summary}</dd>
+          </div>
+          {command.options.length > 0 && (
+            <div class="field">
+              <dt class="label">Options</dt>
+              {command.options.map((option) => (
+                <dd>
+                  <code>{option.flag}</code> {option.description}
+                </dd>
+              ))}
+            </div>
+          )}
+        </dl>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .form {
+    display: block;
+    max-width: none;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--sh-muted);
+  }
+  li {
+    padding: 14px 0 16px;
+    border-bottom: 1px solid var(--sh-muted);
+  }
+  dl {
+    display: grid;
+    grid-template-columns: minmax(0, 17em) minmax(0, 1fr);
+    gap: 10px 32px;
+    margin: 0;
+  }
+  .field {
+    min-width: 0;
+  }
+  .field:nth-child(3) {
+    grid-column: 2;
+  }
+  dt {
+    margin-bottom: 4px;
+  }
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  dd + dd {
+    margin-top: 2px;
+  }
+  @media (max-width: 640px) {
+    dl {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .field:nth-child(3) {
+      grid-column: auto;
+    }
+  }
+</style>

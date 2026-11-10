@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "storehouse-site",
+  "account_id": "ced8a732cb86f925be417214a24f2542", // owns the osroc.io zone
+  "compatibility_date": "2026-11-01",
+  // The static Astro build, served from Workers Static Assets with no Worker script.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page",
+  },
+  "routes": [{ "pattern": "storehouse.osroc.io", "custom_domain": true }],
+  "workers_dev": false,
+  "observability": { "enabled": true },
+}

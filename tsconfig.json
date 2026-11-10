@@ -1,0 +1,5 @@
+// The solution: `tsc -b` checks each project, and editors find a file's project here.
+{
+  "files": [],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "storehouse-site",
+  "private": true,
+  "description": "storehouse's one-page site, at storehouse.osroc.io.",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "docs": "node scripts/cli-docs.ts",
+    "build": "node scripts/cli-docs.ts --check && astro build",
+    "preview": "astro preview",
+    "check": "node scripts/cli-docs.ts --check && astro build",
+    "deploy": "pnpm build && wrangler deploy"
+  },
+  "devDependencies": {
+    "astro": "catalog:",
+    "wrangler": "catalog:"
+  }
+}

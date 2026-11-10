@@ -1,0 +1,36 @@
+/* Latin subset, self-hosted. All three families are under the SIL Open Font License (OFL.txt in each folder). */
+@font-face {
+  font-family: "Marcellus SC";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./marcellus-sc/marcellus-sc-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Courier Prime";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./courier-prime/courier-prime-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Courier Prime";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./courier-prime/courier-prime-latin-700-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./ibm-plex-sans/ibm-plex-sans-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./ibm-plex-sans/ibm-plex-sans-latin-500-normal.woff2") format("woff2");
+}

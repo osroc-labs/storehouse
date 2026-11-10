@@ -1,0 +1,1250 @@
+{
+  "install": "npm install -g @osroc-labs/storehouse",
+  "commands": [
+    {
+      "name": "status",
+      "usage": "storehouse status [env…]",
+      "summary": "Show which secrets are set in each env, and when they changed.",
+      "options": [
+        {
+          "flag": "--json",
+          "description": "print JSON"
+        }
+      ]
+    },
+    {
+      "name": "set",
+      "usage": "storehouse set <env> <KEY>",
+      "summary": "Store a value for a secret.",
+      "options": []
+    },
+    {
+      "name": "get",
+      "usage": "storehouse get <env> <KEY>",
+      "summary": "Print a secret's latest value.",
+      "options": [
+        {
+          "flag": "--out <path>",
+          "description": "write the value to a file (0600) instead of stdout"
+        },
+        {
+          "flag": "--force",
+          "description": "overwrite a file that exists"
+        }
+      ]
+    },
+    {
+      "name": "history",
+      "usage": "storehouse history <env> [KEY]",
+      "summary": "List versions and when each was added, for one secret or a whole env.",
+      "options": [
+        {
+          "flag": "--json",
+          "description": "print JSON"
+        },
+        {
+          "flag": "--limit <n>",
+          "description": "show at most n versions (default 20; 0 for all)"
+        }
+      ]
+    },
+    {
+      "name": "check",
+      "usage": "storehouse check",
+      "summary": "Check storehouse.json, with no Google access.",
+      "options": [
+        {
+          "flag": "--json",
+          "description": "print JSON"
+        }
+      ]
+    },
+    {
+      "name": "trust",
+      "usage": "storehouse trust",
+      "summary": "Trust the Google Cloud projects and repo-local CLIs storehouse.json sends values to.",
+      "options": []
+    },
+    {
+      "name": "protect",
+      "usage": "storehouse protect <env>",
+      "summary": "Label a protected env's secrets so no manifest edit can lift its protection.",
+      "options": []
+    },
+    {
+      "name": "auth",
+      "usage": "storehouse auth",
+      "summary": "Show which Google credentials storehouse uses.",
+      "options": [
+        {
+          "flag": "--json",
+          "description": "print JSON"
+        }
+      ]
+    },
+    {
+      "name": "agents",
+      "usage": "storehouse agents",
+      "summary": "Print a guide for coding agents working with these secrets.",
+      "options": [
+        {
+          "flag": "--write",
+          "description": "put the guide in AGENTS.md beside storehouse.json"
+        },
+        {
+          "flag": "--file <path>",
+          "description": "with --write, the file to put it in instead (CLAUDE.md, say)"
+        },
+        {
+          "flag": "--dry-run",
+          "description": "say what would happen; read no values and change nothing"
+        },
+        {
+          "flag": "--force",
+          "description": "overwrite a file that exists"
+        }
+      ]
+    },
+    {
+      "name": "pull",
+      "usage": "storehouse pull <env>",
+      "summary": "Write an env's secrets to its dotenv file.",
+      "options": [
+        {
+          "flag": "--dry-run",
+          "description": "say what would happen; read no values and change nothing"
+        },
+        {
+          "flag": "--force",
+          "description": "overwrite a file that exists"
+        }
+      ]
+    },
+    {
+      "name": "push",
+      "usage": "storehouse push <env> [KEY…]",
+      "summary": "Send an env's secrets to where they run.",
+      "options": [
+        {
+          "flag": "--dry-run",
+          "description": "say what would happen; read no values and change nothing"
+        }
+      ]
+    }
+  ],
+  "status": {
+    "command": "storehouse status",
+    "output": "             dev          stage        purpose\nAUTH_SECRET  set 10d ago  set 10d ago  Signs session cookies.\nSMS_SID      set 2d ago   missing      The SMS account that texts sign-in codes.\nSEED_TOKEN   set 7d ago   -            A sandbox token, for the seed script.\n\nprod is protected and not shown. Name it to include it: storehouse status dev stage prod",
+    "code": 0
+  },
+  "quickstartManifest": "{\n  \"$schema\": \"https://cdn.jsdelivr.net/npm/@osroc-labs/storehouse/schema.json\",\n  \"project\": \"my-gcp-project\",\n  \"name\": \"myapp-{env}-{key}\",\n  \"envs\": {\n    \"dev\": {},\n    \"prod\": { \"protected\": true }\n  },\n  \"secrets\": {\n    \"API_KEY\": { \"purpose\": \"Calls the payments API.\", \"required\": true }\n  }\n}",
+  "exitCodes": [
+    {
+      "code": 0,
+      "meaning": [
+        {
+          "text": "Done."
+        }
+      ]
+    },
+    {
+      "code": 1,
+      "meaning": [
+        {
+          "text": "Failed: Google, a file, a CLI. The message says why and what to do."
+        }
+      ]
+    },
+    {
+      "code": 2,
+      "meaning": [
+        {
+          "text": "A mistake on the command line: an unknown command, option, env or key."
+        }
+      ]
+    },
+    {
+      "code": 3,
+      "meaning": [
+        {
+          "text": "storehouse.json",
+          "isCode": true
+        },
+        {
+          "text": " is missing or has problems. "
+        },
+        {
+          "text": "storehouse check",
+          "isCode": true
+        },
+        {
+          "text": " lists them."
+        }
+      ]
+    },
+    {
+      "code": 4,
+      "meaning": [
+        {
+          "text": "A required secret is missing ("
+        },
+        {
+          "text": "status",
+          "isCode": true
+        },
+        {
+          "text": ", "
+        },
+        {
+          "text": "pull",
+          "isCode": true
+        },
+        {
+          "text": ", "
+        },
+        {
+          "text": "push",
+          "isCode": true
+        },
+        {
+          "text": "), or the secret asked for isn't set ("
+        },
+        {
+          "text": "get",
+          "isCode": true
+        },
+        {
+          "text": ", "
+        },
+        {
+          "text": "history",
+          "isCode": true
+        },
+        {
+          "text": ")."
+        }
+      ]
+    },
+    {
+      "code": 5,
+      "meaning": [
+        {
+          "text": "Refused by a protected env, or stopped at a prompt with Ctrl-C."
+        }
+      ]
+    }
+  ],
+  "readme": {
+    "install": [
+      {
+        "kind": "paragraph",
+        "parts": [
+          {
+            "text": "storehouse runs on macOS and Linux (not Windows yet) with Node 24 or later."
+          }
+        ]
+      },
+      {
+        "kind": "paragraph",
+        "parts": [
+          {
+            "text": "It signs in to Google the way "
+          },
+          {
+            "text": "gcloud",
+            "isCode": true
+          },
+          {
+            "text": " does, so if "
+          },
+          {
+            "text": "gcloud auth login",
+            "isCode": true
+          },
+          {
+            "text": " works, storehouse works. "
+          },
+          {
+            "text": "Auth",
+            "href": "https://github.com/osroc-labs/storehouse#auth"
+          },
+          {
+            "text": " has the other ways."
+          }
+        ]
+      }
+    ],
+    "quickstart": [
+      {
+        "kind": "paragraph",
+        "parts": [
+          {
+            "text": "In a project where you can create secrets (a scratch one is best for a first try):"
+          }
+        ]
+      },
+      {
+        "kind": "list",
+        "isOrdered": true,
+        "items": [
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "Write "
+                },
+                {
+                  "text": "storehouse.json",
+                  "isCode": true
+                },
+                {
+                  "text": " at the root of your repo:"
+                }
+              ]
+            },
+            {
+              "kind": "code",
+              "lang": "json",
+              "text": "{\n  \"$schema\": \"https://cdn.jsdelivr.net/npm/@osroc-labs/storehouse/schema.json\",\n  \"project\": \"my-gcp-project\",\n  \"name\": \"myapp-{env}-{key}\",\n  \"envs\": {\n    \"dev\": {},\n    \"prod\": { \"protected\": true }\n  },\n  \"secrets\": {\n    \"API_KEY\": { \"purpose\": \"Calls the payments API.\", \"required\": true }\n  }\n}"
+            }
+          ],
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "storehouse check",
+                  "isCode": true
+                },
+                {
+                  "text": " checks it, with no Google access."
+                }
+              ]
+            }
+          ],
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "storehouse status",
+                  "isCode": true
+                },
+                {
+                  "text": " shows "
+                },
+                {
+                  "text": "API_KEY",
+                  "isCode": true
+                },
+                {
+                  "text": " missing in dev, and exits 4 because it's required."
+                }
+              ]
+            }
+          ],
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "storehouse set dev API_KEY",
+                  "isCode": true
+                },
+                {
+                  "text": " asks for the value (hidden) and stores it as "
+                },
+                {
+                  "text": "myapp-dev-API_KEY",
+                  "isCode": true
+                },
+                {
+                  "text": ". Piping works too: "
+                },
+                {
+                  "text": "printf %s \"$VALUE\" | storehouse set dev API_KEY",
+                  "isCode": true
+                },
+                {
+                  "text": "."
+                }
+              ]
+            }
+          ],
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "storehouse status",
+                  "isCode": true
+                },
+                {
+                  "text": " shows it set. "
+                },
+                {
+                  "text": "storehouse history dev",
+                  "isCode": true
+                },
+                {
+                  "text": " shows when."
+                }
+              ]
+            }
+          ],
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "storehouse pull dev",
+                  "isCode": true
+                },
+                {
+                  "text": " writes "
+                },
+                {
+                  "text": ".env.dev",
+                  "isCode": true
+                },
+                {
+                  "text": " (0600) for local development, and adds it to "
+                },
+                {
+                  "text": ".gitignore",
+                  "isCode": true
+                },
+                {
+                  "text": " if git doesn't already ignore it."
+                }
+              ]
+            }
+          ]
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "kind": "paragraph",
+        "parts": [
+          {
+            "text": "The env is always the first word after the command, and a key is always a manifest key, never a Secret Manager name. Every command takes "
+          },
+          {
+            "text": "--help",
+            "isCode": true
+          },
+          {
+            "text": "."
+          }
+        ]
+      }
+    ],
+    "agents": [
+      {
+        "kind": "paragraph",
+        "parts": [
+          {
+            "text": "storehouse is built to be used alongside coding agents (Claude Code, Codex, Cursor and others), and to keep them away from production."
+          }
+        ]
+      },
+      {
+        "kind": "list",
+        "isOrdered": false,
+        "items": [
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "storehouse agents",
+                  "isCode": true,
+                  "isStrong": true
+                },
+                {
+                  "text": " prints a short guide for an agent, built from your manifest: your envs, which are protected and must never be touched, the commands it may run, how to add a secret, and what each exit code means."
+                }
+              ]
+            }
+          ],
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "storehouse agents --write",
+                  "isCode": true,
+                  "isStrong": true
+                },
+                {
+                  "text": " puts that guide in "
+                },
+                {
+                  "text": "AGENTS.md",
+                  "isCode": true
+                },
+                {
+                  "text": " beside "
+                },
+                {
+                  "text": "storehouse.json",
+                  "isCode": true
+                },
+                {
+                  "text": ", between "
+                },
+                {
+                  "text": "<!-- storehouse:start -->",
+                  "isCode": true
+                },
+                {
+                  "text": " and "
+                },
+                {
+                  "text": "<!-- storehouse:end -->",
+                  "isCode": true
+                },
+                {
+                  "text": " (each on a line of its own), and leaves the rest of the file alone, line endings included. Run it again after changing the manifest; it says \"AGENTS.md is current.\" when nothing changed, "
+                },
+                {
+                  "text": "--dry-run",
+                  "isCode": true
+                },
+                {
+                  "text": " shows the change, and "
+                },
+                {
+                  "text": "--file CLAUDE.md",
+                  "isCode": true
+                },
+                {
+                  "text": " writes to another file. "
+                },
+                {
+                  "text": "storehouse check",
+                  "isCode": true
+                },
+                {
+                  "text": " warns when an "
+                },
+                {
+                  "text": "AGENTS.md",
+                  "isCode": true
+                },
+                {
+                  "text": " or "
+                },
+                {
+                  "text": "CLAUDE.md",
+                  "isCode": true
+                },
+                {
+                  "text": " beside "
+                },
+                {
+                  "text": "storehouse.json",
+                  "isCode": true
+                },
+                {
+                  "text": " holds a guide that's out of date; a guide written elsewhere with "
+                },
+                {
+                  "text": "--file",
+                  "isCode": true
+                },
+                {
+                  "text": " isn't checked."
+                }
+              ]
+            }
+          ],
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "What ",
+                  "isStrong": true
+                },
+                {
+                  "text": "--write",
+                  "isCode": true,
+                  "isStrong": true
+                },
+                {
+                  "text": " won't do.",
+                  "isStrong": true
+                },
+                {
+                  "text": " It follows a symlink only to a regular file inside the repo; a "
+                },
+                {
+                  "text": "--file",
+                  "isCode": true
+                },
+                {
+                  "text": " symlink out of the repo needs "
+                },
+                {
+                  "text": "--force",
+                  "isCode": true
+                },
+                {
+                  "text": ", and a "
+                },
+                {
+                  "text": "--file",
+                  "isCode": true
+                },
+                {
+                  "text": " outside the repo is written with a notice. It never writes into git's own directory, and won't rewrite a file over 1 MB, one that isn't UTF-8, or one that changed while it ran."
+                }
+              ]
+            }
+          ],
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "Claude Code",
+                  "isStrong": true
+                },
+                {
+                  "text": " reads an "
+                },
+                {
+                  "text": "AGENTS.md",
+                  "isCode": true
+                },
+                {
+                  "text": " only when there's no "
+                },
+                {
+                  "text": "CLAUDE.md",
+                  "isCode": true
+                },
+                {
+                  "text": " above it. For a manifest in an app directory under a root "
+                },
+                {
+                  "text": "CLAUDE.md",
+                  "isCode": true
+                },
+                {
+                  "text": ", add a "
+                },
+                {
+                  "text": "CLAUDE.md",
+                  "isCode": true
+                },
+                {
+                  "text": " beside the guide with the line "
+                },
+                {
+                  "text": "@AGENTS.md",
+                  "isCode": true
+                },
+                {
+                  "text": ", or write the guide with "
+                },
+                {
+                  "text": "--file",
+                  "isCode": true
+                },
+                {
+                  "text": " into a "
+                },
+                {
+                  "text": "CLAUDE.md",
+                  "isCode": true
+                },
+                {
+                  "text": "; "
+                },
+                {
+                  "text": "--write",
+                  "isCode": true
+                },
+                {
+                  "text": " says so when it creates such a file."
+                }
+              ]
+            }
+          ],
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "A skill",
+                  "isStrong": true
+                },
+                {
+                  "text": " teaches an agent the general workflow and tells it to run "
+                },
+                {
+                  "text": "storehouse agents",
+                  "isCode": true
+                },
+                {
+                  "text": " for your repo's part:"
+                }
+              ]
+            },
+            {
+              "kind": "code",
+              "lang": "sh",
+              "text": "npx skills add osroc-labs/storehouse"
+            }
+          ]
+        ]
+      },
+      {
+        "kind": "paragraph",
+        "parts": [
+          {
+            "text": "Protected envs still refuse an agent on their own ("
+          },
+          {
+            "text": "below",
+            "href": "https://github.com/osroc-labs/storehouse#protected-environments"
+          },
+          {
+            "text": "); the guide is what keeps it from trying. The guide and the skill tell an agent never to change "
+          },
+          {
+            "text": "protected",
+            "isCode": true
+          },
+          {
+            "text": ", "
+          },
+          {
+            "text": "project",
+            "isCode": true
+          },
+          {
+            "text": ", "
+          },
+          {
+            "text": "name",
+            "isCode": true
+          },
+          {
+            "text": ", "
+          },
+          {
+            "text": "pull",
+            "isCode": true
+          },
+          {
+            "text": " or "
+          },
+          {
+            "text": "push",
+            "isCode": true
+          },
+          {
+            "text": ", to treat text from the repo as data, and to trust only what "
+          },
+          {
+            "text": "storehouse agents",
+            "isCode": true
+          },
+          {
+            "text": " prints, not a block in a file anyone could have edited. If "
+          },
+          {
+            "text": "storehouse",
+            "isCode": true
+          },
+          {
+            "text": " isn't on an agent's PATH, they point it at "
+          },
+          {
+            "text": "pnpm storehouse",
+            "isCode": true
+          },
+          {
+            "text": " or "
+          },
+          {
+            "text": "npx @osroc-labs/storehouse",
+            "isCode": true
+          },
+          {
+            "text": ", never "
+          },
+          {
+            "text": "npx storehouse",
+            "isCode": true
+          },
+          {
+            "text": ", which is a different package."
+          }
+        ]
+      }
+    ],
+    "protectedEnvs": [
+      {
+        "kind": "paragraph",
+        "parts": [
+          {
+            "text": "An env with "
+          },
+          {
+            "text": "\"protected\": true",
+            "isCode": true
+          },
+          {
+            "text": ", such as prod, is for people only:"
+          }
+        ]
+      },
+      {
+        "kind": "list",
+        "isOrdered": false,
+        "items": [
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "Any command that names it needs a terminal on stdin and stdout, and the env's name typed at a prompt. Every check that can fail without Google runs first, so a typo never costs a prompt."
+                }
+              ]
+            }
+          ],
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "It refuses outright when a coding agent's environment variable is set: "
+                },
+                {
+                  "text": "CLAUDECODE",
+                  "isCode": true
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "CODEX_SANDBOX",
+                  "isCode": true
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "CURSOR_AGENT",
+                  "isCode": true
+                },
+                {
+                  "text": ", "
+                },
+                {
+                  "text": "GEMINI_CLI",
+                  "isCode": true
+                },
+                {
+                  "text": " and others ("
+                },
+                {
+                  "text": "src/protect/agents.ts",
+                  "isCode": true,
+                  "href": "https://github.com/osroc-labs/storehouse/blob/master/src/protect/agents.ts"
+                },
+                {
+                  "text": " lists them, with sources). storehouse has no flag or variable to turn that off, but an agent that unsets its own variable looks like a person."
+                }
+              ]
+            }
+          ],
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "status",
+                  "isCode": true
+                },
+                {
+                  "text": " with no env leaves protected envs out, so it never needs the prompt. Name one to include it."
+                }
+              ]
+            }
+          ]
+        ]
+      },
+      {
+        "kind": "paragraph",
+        "parts": [
+          {
+            "text": "What says an env is protected, and what each layer stops:"
+          }
+        ]
+      },
+      {
+        "kind": "table",
+        "head": [
+          [
+            {
+              "text": "Layer"
+            }
+          ],
+          [
+            {
+              "text": "Stops"
+            }
+          ],
+          [
+            {
+              "text": "Doesn't stop"
+            }
+          ]
+        ],
+        "rows": [
+          [
+            [
+              {
+                "text": "\"protected\": true",
+                "isCode": true
+              },
+              {
+                "text": " in the working-tree "
+              },
+              {
+                "text": "storehouse.json",
+                "isCode": true
+              }
+            ],
+            [
+              {
+                "text": "An agent running a command on the env as the manifest names it."
+              }
+            ],
+            [
+              {
+                "text": "An edit that deletes the line."
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "The same manifest committed at "
+              },
+              {
+                "text": "HEAD",
+                "isCode": true
+              },
+              {
+                "text": ", or the nearest one committed above where storehouse runs (git runs without "
+              },
+              {
+                "text": "GIT_DIR",
+                "isCode": true
+              },
+              {
+                "text": " and its kin, so they can't hide the commit)"
+              }
+            ],
+            [
+              {
+                "text": "A casual edit, a new manifest beside or below the committed one, a detached "
+              },
+              {
+                "text": "HEAD",
+                "isCode": true
+              },
+              {
+                "text": "."
+              }
+            ],
+            [
+              {
+                "text": "Committing the edit, an unborn branch, a manifest copied outside the repo or into a sibling directory, a nested "
+              },
+              {
+                "text": "git init",
+                "isCode": true
+              },
+              {
+                "text": " with a new manifest in it, a PATH without git."
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "The "
+              },
+              {
+                "text": "storehouse-protected=true",
+                "isCode": true
+              },
+              {
+                "text": " label on the secret in Google"
+              }
+            ],
+            [
+              {
+                "text": "Every command that reads or sets the secret, through any manifest: an edited, committed, copied or aliased one meets the same prompt. A label lookup Google refuses counts as protected."
+              }
+            ],
+            [
+              {
+                "text": "status",
+                "isCode": true
+              },
+              {
+                "text": " and "
+              },
+              {
+                "text": "history",
+                "isCode": true
+              },
+              {
+                "text": ", which show only versions and times, never values. A secret not labelled yet."
+              }
+            ]
+          ]
+        ]
+      },
+      {
+        "kind": "paragraph",
+        "parts": [
+          {
+            "text": "The label is the layer that holds. "
+          },
+          {
+            "text": "set",
+            "isCode": true
+          },
+          {
+            "text": " adds it to each secret it creates or sets in a protected env, and storehouse never removes it. For the secrets that were there before, a person runs "
+          },
+          {
+            "text": "storehouse protect <env>",
+            "isCode": true
+          },
+          {
+            "text": " once; it labels the secrets the manifest lists for that env, not others in the project, and like "
+          },
+          {
+            "text": "set",
+            "isCode": true
+          },
+          {
+            "text": " asks to trust the project first."
+          }
+        ]
+      },
+      {
+        "kind": "paragraph",
+        "parts": [
+          {
+            "text": "What this doesn't do.",
+            "isStrong": true
+          },
+          {
+            "text": " It's a second line, not the first, and some limits come with the design:"
+          }
+        ]
+      },
+      {
+        "kind": "list",
+        "isOrdered": false,
+        "items": [
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "An agent with a shell and your Google login can always call "
+                },
+                {
+                  "text": "gcloud",
+                  "isCode": true
+                },
+                {
+                  "text": " itself."
+                }
+              ]
+            }
+          ],
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "An agent that sets none of those variables (Aider, for one) looks like a person."
+                }
+              ]
+            }
+          ],
+          [
+            {
+              "kind": "paragraph",
+              "parts": [
+                {
+                  "text": "A program that runs storehouse in a pseudo-terminal can type the env's name."
+                }
+              ]
+            }
+          ]
+        ]
+      },
+      {
+        "kind": "paragraph",
+        "parts": [
+          {
+            "text": "The first line is your own guard: a hook that inspects the commands an agent runs. storehouse exports what that guard needs:"
+          }
+        ]
+      },
+      {
+        "kind": "code",
+        "lang": "ts",
+        "text": "import { execFileSync } from 'node:child_process';\nimport { protectedInvocation } from '@osroc-labs/storehouse';\n\n// the committed manifest, which an agent's edit to the working tree can't change\nconst manifest = JSON.parse(\n  execFileSync('git', ['show', 'HEAD:storehouse.json'], { encoding: 'utf8' }),\n);\nconst refused = protectedInvocation(['get', 'prod', 'API_KEY'], manifest);\n// { envs: ['prod'], reason: '`storehouse get prod API_KEY` uses the protected env prod, …' }"
+      },
+      {
+        "kind": "paragraph",
+        "parts": [
+          {
+            "text": "protectedInvocation(argv, manifest)",
+            "isCode": true
+          },
+          {
+            "text": " takes the words after "
+          },
+          {
+            "text": "storehouse",
+            "isCode": true
+          },
+          {
+            "text": " and returns the protected envs they name with a reason to show, or "
+          },
+          {
+            "text": "undefined",
+            "isCode": true
+          },
+          {
+            "text": ". It reads the line with storehouse's own parser, so flags may come anywhere and "
+          },
+          {
+            "text": "--out prod",
+            "isCode": true
+          },
+          {
+            "text": " isn't taken for an env. A line storehouse would refuse to run counts as protected when any word in it names a protected env."
+          }
+        ]
+      }
+    ],
+    "why": [
+      {
+        "kind": "paragraph",
+        "parts": [
+          {
+            "text": "Secret Manager is a good place to keep secrets, and "
+          },
+          {
+            "text": "gcloud secrets",
+            "isCode": true
+          },
+          {
+            "text": " is a hard way to work with them. Every command needs the full secret name, the project and "
+          },
+          {
+            "text": "--data-file=-",
+            "isCode": true
+          },
+          {
+            "text": ". Nothing shows what's set in which environment. Getting values into a local "
+          },
+          {
+            "text": ".env",
+            "isCode": true
+          },
+          {
+            "text": " or onto the platform where the app runs is a script each team writes for itself."
+          }
+        ]
+      },
+      {
+        "kind": "table",
+        "head": [
+          [
+            {
+              "text": "Instead of"
+            }
+          ],
+          [
+            {
+              "text": "Why storehouse"
+            }
+          ]
+        ],
+        "rows": [
+          [
+            [
+              {
+                "text": "gcloud secrets",
+                "isCode": true
+              }
+            ],
+            [
+              {
+                "text": "Short commands by key and environment, a status table, pulls and pushes."
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "fnox, secretspec, varlock"
+              }
+            ],
+            [
+              {
+                "text": "Built for Secret Manager alone, with its own login ("
+              },
+              {
+                "text": "gcloud",
+                "isCode": true
+              },
+              {
+                "text": ") or application default credentials, a manifest it never rewrites, and no "
+              },
+              {
+                "text": "exec",
+                "isCode": true
+              },
+              {
+                "text": " that hands a command your production secrets."
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Doppler, Infisical, 1Password"
+              }
+            ],
+            [
+              {
+                "text": "They replace Secret Manager. storehouse works with the secrets, IAM and audit logs you already have."
+              }
+            ]
+          ]
+        ]
+      }
+    ]
+  }
+}

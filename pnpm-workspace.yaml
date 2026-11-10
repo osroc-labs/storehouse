@@ -1,0 +1,33 @@
+# The CLI is the root package; site/ is its marketing site, kept out of the npm package.
+packages:
+  - site
+
+# One version of each dependency: package.json names it as `catalog:`.
+# TypeScript 7 is `@typescript/native`, so `tsc` is the native compiler. `typescript` is TypeScript 6's
+# JavaScript API, for the tools that import it; its binary is tsc6, so it never shadows `tsc`.
+catalog:
+  '@types/node': ^24.19.2
+  '@typescript/native': npm:typescript@7.0.2
+  astro: 7.4.7
+  date-fns: 4.1.0
+  dotenv: 16.3.1
+  fast-check: 4.10.2
+  knip: 6.44.1
+  oxfmt: 0.63.0
+  oxlint: 1.78.0
+  oxlint-tsgolint: 7.0.2001
+  typescript: npm:@typescript/typescript6@6.0.2
+  wrangler: 4.158.0
+  yaml: 2.9.1
+  zod: 4.6.7
+
+# Never install a version published less than a day ago (in minutes): time for a bad release to be
+# caught and pulled before it reaches us.
+minimumReleaseAge: 1440
+
+# pnpm 12 refuses to install while a dependency with build scripts is unlisted here.
+# The site's esbuild and workerd ship their binaries as per-platform packages; their scripts only
+# check for them or download a fallback.
+allowBuilds:
+  esbuild: false
+  workerd: false

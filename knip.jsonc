@@ -1,0 +1,32 @@
+// Only export what another module uses.
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "include": [
+    "files",
+    "exports",
+    "nsExports",
+    "types",
+    "nsTypes",
+    "duplicates",
+    "dependencies",
+    "unlisted",
+  ],
+  "workspaces": {
+    ".": {
+      "entry": [
+        // the package's bin and exports, which package.json names by their built paths in dist/
+        "src/cli.ts",
+        "src/index.ts",
+        // node --test runs these by glob, and scripts/ by hand or from package.json
+        "src/**/*.test.ts",
+        "lint/*.test.ts",
+        "scripts/*.ts",
+      ],
+    },
+    // the marketing site: Astro's plugin finds its pages; brand/ is the brand kit, kept as delivered
+    "site": {
+      "entry": ["scripts/*.ts"],
+      "ignore": ["brand/**"],
+    },
+  },
+}

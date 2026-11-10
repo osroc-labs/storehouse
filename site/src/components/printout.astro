@@ -1,0 +1,124 @@
+---
+// Terminal output on green-bar paper: stripes two lines tall and tractor-feed margins. It scrolls
+// sideways on its own, so a long line never widens the page.
+import CopyButton from './copy-button.astro';
+
+// `id` names the printout when its label isn't unique on the page. `isWrapped` lets a line wrap
+// instead of scrolling, for a command a phone should show whole.
+type Props = {
+  label: string;
+  text: string;
+  id?: string;
+  isWrapped?: boolean;
+  copy?: { text: string; what: string };
+};
+
+const { label, text, id, isWrapped = false, copy } = Astro.props;
+const labelId = `printout-${id ?? label.replaceAll(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+---
+
+<figure class="printout-figure">
+  <div class="printout-head">
+    <figcaption class="label" id={labelId}>{label}</figcaption>
+    {copy && <CopyButton text={copy.text} what={copy.what} />}
+  </div>
+  <div class="printout">
+    <pre
+      class:list={{ 'is-wrapped': isWrapped }}
+      tabindex="0"
+      role="region"
+      aria-labelledby={labelId}><code>{isWrapped ? text.split(' ').map((word, index) => <>{index > 0 && ' '}<span class="word">{word}</span></>) : text}</code></pre>
+  </div>
+</figure>
+
+<style>
+  .printout-figure {
+    margin: 0;
+    min-width: 0;
+  }
+  .printout-head {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .printout-head .label {
+    margin: 0;
+  }
+  .printout {
+    position: relative;
+    padding: 0 24px;
+    background: #fff;
+    border: 1px solid rgb(38 51 92 / 20%);
+  }
+  /* a punched hole beside each line, behind a dashed perforation */
+  .printout::before,
+  .printout::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 22px;
+    background: radial-gradient(
+        circle at 11px 10px,
+        #d9d6ca 4px,
+        transparent 4.5px
+      )
+      0 0 / 22px 20px repeat-y;
+  }
+  .printout::before {
+    left: 0;
+    border-right: 1px dashed rgb(38 51 92 / 30%);
+  }
+  .printout::after {
+    right: 0;
+    border-left: 1px dashed rgb(38 51 92 / 30%);
+  }
+  pre {
+    margin: 0;
+    padding: 20px 14px;
+    overflow-x: auto;
+    font: 14px/20px var(--sh-font-body);
+    color: var(--sh-ink);
+    background: repeating-linear-gradient(
+        var(--sh-greenbar) 0 40px,
+        #fff 40px 80px
+      )
+      0 20px / 100% 80px;
+    background-attachment: local;
+  }
+  /* wrapped only at its spaces, never inside a word like @osroc-labs */
+  .is-wrapped {
+    white-space: pre-wrap;
+  }
+  .word {
+    white-space: nowrap;
+  }
+  /* narrower tractor-feed margins on a phone, so a command line fits */
+  @media (max-width: 640px) {
+    .printout {
+      padding: 0 14px;
+    }
+    .printout::before,
+    .printout::after {
+      width: 13px;
+      background: radial-gradient(
+          circle at 6.5px 10px,
+          #d9d6ca 3px,
+          transparent 3.5px
+        )
+        0 0 / 13px 20px repeat-y;
+    }
+    pre {
+      padding-inline: 10px;
+    }
+  }
+  pre:focus-visible {
+    outline: 2px solid var(--sh-ink);
+    outline-offset: 2px;
+  }
+  code {
+    font: inherit;
+  }
+</style>

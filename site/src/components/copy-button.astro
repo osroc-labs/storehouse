@@ -1,0 +1,76 @@
+---
+// Copies `text`; the page's one live region (in Layout) says it worked, so a screen reader hears it.
+type Props = { text: string; what: string };
+
+const { text, what } = Astro.props;
+---
+
+<button type="button" class="copy" data-copy={text} data-what={what}>
+  <span class="copy-text">Copy</span><span class="visually-hidden">
+    {what}</span
+  >
+</button>
+
+<style>
+  .copy {
+    flex: none;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--sh-ink);
+    background: var(--sh-paper);
+    color: var(--sh-ink);
+    font: 500 12px/1 var(--sh-font-label);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .copy:hover {
+    background: var(--sh-ink);
+    color: var(--sh-paper);
+  }
+</style>
+
+<script>
+  const status = document.querySelector<HTMLElement>('#copy-status');
+  const resetDelayMs = 2000;
+
+  // Cleared first, then set on the next frame, so a second copy is announced again.
+  const announce = (message: string) => {
+    if (!status) return;
+    status.textContent = '';
+    requestAnimationFrame(() => {
+      status.textContent = message;
+    });
+  };
+
+  const showLabel = (button: HTMLButtonElement, text: string) => {
+    const label = button.querySelector<HTMLElement>('.copy-text');
+    if (!label) return;
+    label.textContent = text;
+    setTimeout(() => {
+      label.textContent = 'Copy';
+    }, resetDelayMs);
+  };
+
+  const handleCopy = async (button: HTMLButtonElement) => {
+    const what = button.dataset.what ?? 'the text';
+    try {
+      await navigator.clipboard.writeText(button.dataset.copy ?? '');
+    } catch {
+      showLabel(button, "Couldn't copy");
+      announce(`Couldn't copy ${what}. Select it and copy it instead.`);
+      return;
+    }
+    showLabel(button, 'Copied');
+    announce(`Copied ${what}.`);
+  };
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>(
+    'button[data-copy]',
+  )) {
+    button.addEventListener('click', () => {
+      void handleCopy(button);
+    });
+  }
+</script>

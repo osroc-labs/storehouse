@@ -1,0 +1,24 @@
+{
+  "plansDirectory": "./docs/plans",
+  "permissions": {
+    "allow": [
+      "Bash(pnpm:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git fetch:*)",
+      "Bash(git branch:*)",
+      "Bash(git switch:*)",
+      "Bash(git rebase:*)",
+      "Bash(git merge:*)",
+      "Bash(git worktree:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh issue:*)",
+      "Bash(gh run:*)",
+      "Edit(./docs/plans/**)"
+    ]
+  }
+}

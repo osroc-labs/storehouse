@@ -1,0 +1,153 @@
+---
+import Layout from '../layouts/layout.astro';
+import Commands from '../components/commands.astro';
+import ExitCodes from '../components/exit-codes.astro';
+import InlineParts from '../components/inline-parts.astro';
+import Printout from '../components/printout.astro';
+import ReadmeBlocks from '../components/readme-blocks.astro';
+import { links } from '../components/links.ts';
+import docs from '../generated/cli-docs.json';
+
+const headline =
+  'A command-line tool for Google Secret Manager, with a manifest in the repo.';
+const statusText = `$ ${docs.status.command}\n${docs.status.output}`;
+---
+
+<Layout
+  title="storehouse: a command-line tool for Google Secret Manager"
+  description={headline}
+>
+  <section class="hero" aria-labelledby="hero-title">
+    <h1 id="hero-title">{headline}</h1>
+    <p class="subhead">
+      A manifest in the repo says which secrets each environment has, and one
+      short command sets, reads, pulls or pushes them. The values stay in
+      Secret Manager.
+    </p>
+    <Printout
+      label="Install"
+      text={`$ ${docs.install}`}
+      isWrapped
+      copy={{ text: docs.install, what: 'the install command' }}
+    />
+    {
+      docs.readme.install.map((block) => (
+        <p class="note">
+          <InlineParts parts={block.parts} />
+        </p>
+      ))
+    }
+    <div class="actions">
+      <a class="button primary" href={links.npm}>Install from npm</a>
+      <a class="button secondary" href={links.docs}>Read the docs</a>
+    </div>
+    <hr class="double-rule" />
+  </section>
+
+  <section aria-labelledby="status-title">
+    <h2 id="status-title">What's set where</h2>
+    <p>
+      <code>storehouse status</code> shows what's set where, and exits non-zero
+      when a required secret is missing. It never reads a value.
+    </p>
+    <Printout label="storehouse status" text={statusText} />
+  </section>
+
+  <section aria-labelledby="quickstart-title">
+    <h2 id="quickstart-title">Quickstart</h2>
+    <ReadmeBlocks blocks={docs.readme.quickstart} id="quickstart" />
+  </section>
+
+  <section aria-labelledby="commands-title">
+    <h2 id="commands-title">Commands</h2>
+    <ReadmeBlocks blocks={docs.readme.commands} id="commands" />
+    <Commands />
+  </section>
+
+  <section aria-labelledby="agents-title">
+    <h2 id="agents-title">Working with coding agents</h2>
+    <ReadmeBlocks blocks={docs.readme.agents} id="agents" />
+  </section>
+
+  <section class="callout" aria-labelledby="protected-title">
+    <h2 id="protected-title">Protected environments</h2>
+    <ReadmeBlocks blocks={docs.readme.protectedEnvs} id="protected" />
+  </section>
+
+  <section aria-labelledby="exit-title">
+    <h2 id="exit-title">Exit codes</h2>
+    <ExitCodes />
+  </section>
+
+  <section aria-labelledby="why-title">
+    <h2 id="why-title">Why</h2>
+    <ReadmeBlocks blocks={docs.readme.why} id="why" />
+  </section>
+</Layout>
+
+<style>
+  .hero {
+    gap: 24px;
+  }
+  .subhead {
+    font-size: clamp(17px, 2.2vw, 19px);
+  }
+  .note {
+    font-size: 15px;
+    color: var(--sh-muted);
+  }
+  .note :global(code) {
+    color: var(--sh-ink);
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+  }
+  .button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 48px;
+    padding: 0 22px;
+    font: 500 13px/1 var(--sh-font-label);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border: 1px solid var(--sh-red);
+  }
+  .primary {
+    background: var(--sh-red);
+    color: var(--sh-paper);
+  }
+  .primary:hover {
+    background: var(--sh-ink);
+    border-color: var(--sh-ink);
+  }
+  .secondary {
+    color: var(--sh-ink);
+    border-color: var(--sh-ink);
+  }
+  .secondary:hover {
+    background: var(--sh-ink);
+    color: var(--sh-paper);
+  }
+  /* the page's one carbon-color ground; links on it are ink, which the brand's contrast table allows */
+  .callout {
+    background: var(--sh-canary);
+    padding: 32px clamp(20px, 4vw, 40px);
+    margin-inline: calc(-1 * clamp(0px, 2vw, 16px));
+  }
+  .callout :global(a) {
+    color: var(--sh-ink);
+  }
+  .callout :global(li::marker) {
+    color: var(--sh-ink);
+  }
+  /* muted text on canary isn't in the brand's contrast table, so the callout's text is all ink;
+     its 1px row rules stay muted, as everywhere else */
+  .callout :global(.label),
+  .callout :global(.readme-table th),
+  .callout :global(.readme-table td) {
+    color: var(--sh-ink);
+  }
+</style>

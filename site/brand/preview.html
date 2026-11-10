@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>storehouse brand kit</title>
+<link rel="icon" href="favicon/favicon.ico" sizes="32x32">
+<link rel="icon" href="favicon/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="tokens/colors.css">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--sh-paper); color: var(--sh-ink); font: 400 17px/1.6 var(--sh-font-body); }
+  main { max-width: 1100px; margin: 0 auto; padding: 48px 20px 64px; display: grid; gap: 44px; }
+  h1 { font: 400 40px/1.05 var(--sh-font-display); letter-spacing: .02em; margin: 0; padding-bottom: 14px; border-bottom: 10px double var(--sh-ink); }
+  h2 { font: 500 12px/1 var(--sh-font-label); letter-spacing: .1em; text-transform: uppercase; color: var(--sh-muted); margin: 0 0 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .tile { display: grid; place-items: center; padding: 28px; min-height: 170px; border: 1px solid rgba(38,51,92,.2); }
+  .tile img { max-width: 100%; max-height: 120px; }
+  .paper { background: var(--sh-paper); } .ink { background: var(--sh-ink); } .greenbar { background: var(--sh-greenbar); }
+  .canary { background: var(--sh-canary); } .pink { background: var(--sh-pink); } .red { background: var(--sh-red); } .muted { background: var(--sh-muted); }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; }
+  .row figure { margin: 0; display: grid; gap: 6px; justify-items: start; font: 12px var(--sh-font-label); color: var(--sh-muted); }
+  .og { width: 100%; border: 1px solid rgba(38,51,92,.2); display: block; }
+  .sw { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .sw div { border: 1px solid rgba(38,51,92,.2); }
+  .sw i { display: block; height: 72px; }
+  .sw p { margin: 0; padding: 8px 10px; font: 13px/1.4 var(--sh-font-body); }
+  .type p { margin: 0 0 10px; max-width: 64ch; }
+  .label { font: 500 11px/1 var(--sh-font-label); letter-spacing: .1em; text-transform: uppercase; color: var(--sh-muted); margin-bottom: 6px; }
+  .printout { position: relative; padding: 0 24px; background: #fff; border: 1px solid rgba(38,51,92,.2); }
+  .printout::before, .printout::after { content: ""; position: absolute; top: 0; bottom: 0; width: 22px;
+    background: radial-gradient(circle at 11px 10px, #D9D6CA 4px, transparent 4.5px) 0 0 / 22px 20px repeat-y; }
+  .printout::before { left: 0; border-right: 1px dashed rgba(38,51,92,.3); }
+  .printout::after { right: 0; border-left: 1px dashed rgba(38,51,92,.3); }
+  .printout pre { margin: 0; padding: 20px 14px; font: 14px/20px var(--sh-font-body); overflow-x: auto;
+    background: repeating-linear-gradient(var(--sh-greenbar) 0 40px, #fff 40px 80px) 0 20px; background-attachment: local; }
+</style>
+</head>
+<body>
+<main>
+  <h1>storehouse brand kit</h1>
+
+  <section>
+    <h2>Lockups and marks</h2>
+    <div class="grid">
+      <div class="tile paper"><img src="logo/lockup-horizontal-ink.svg" alt="storehouse horizontal lockup, ink"></div>
+      <div class="tile ink"><img src="logo/lockup-horizontal-paper.svg" alt="storehouse horizontal lockup, paper"></div>
+      <div class="tile greenbar"><img src="logo/lockup-stacked-ink.svg" alt="storehouse stacked lockup, ink"></div>
+      <div class="tile canary"><img src="logo/mark-ink.svg" alt="storehouse seal, ink"></div>
+      <div class="tile pink"><img src="logo/mark-small-ink.svg" alt="storehouse small mark, ink"></div>
+      <div class="tile paper"><img src="logo/mark-red.svg" alt="storehouse seal, red"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Favicons and app icons</h2>
+    <div class="row">
+      <figure><img src="favicon/favicon-16.png" width="16" height="16" alt="">16</figure>
+      <figure><img src="favicon/favicon-32.png" width="32" height="32" alt="">32</figure>
+      <figure><img src="favicon/favicon.svg" width="64" height="64" alt="">svg</figure>
+      <figure><img src="favicon/apple-touch-icon.png" width="90" height="90" alt="">180 apple-touch</figure>
+      <figure><img src="favicon/icon-192.png" width="96" height="96" alt="">192</figure>
+      <figure><img src="favicon/icon-512.png" width="128" height="128" style="border-radius:50%" alt="">512, maskable crop</figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Social card · 1200 × 630</h2>
+    <img class="og" src="social/og-image.png" alt="storehouse social card">
+  </section>
+
+  <section>
+    <h2>Color</h2>
+    <div class="sw">
+      <div><i class="paper"></i><p>paper #FAFAF5</p></div>
+      <div><i class="ink"></i><p>ink #26335C</p></div>
+      <div><i class="muted"></i><p>muted #5D6580</p></div>
+      <div><i class="greenbar"></i><p>greenbar #DCEBD6</p></div>
+      <div><i class="canary"></i><p>canary #F4E39C</p></div>
+      <div><i class="pink"></i><p>pink #F3CDD3</p></div>
+      <div><i class="red"></i><p>red #B2393A</p></div>
+    </div>
+  </section>
+
+  <section class="type">
+    <h2>Type and terminal output</h2>
+    <p style="font:400 44px/1.05 var(--sh-font-display);letter-spacing:.02em">A command-line tool for Google Secret Manager</p>
+    <p>Courier Prime body. Each repo commits storehouse.json, which says what secrets the app has in each environment, what each is for and where it goes.</p>
+    <div class="label">storehouse status</div>
+    <div class="printout"><pre>$ storehouse status
+             dev          stage        purpose
+AUTH_SECRET  set 10d ago  set 10d ago  Signs session cookies.
+SMS_SID      set 2d ago   missing      The SMS account that texts sign-in codes.
+SEED_TOKEN   set 7d ago   -            A sandbox token, for the seed script.
+
+prod is protected and not shown. Name it to include it: storehouse status dev stage prod</pre></div>
+  </section>
+</main>
+</body>
+</html>

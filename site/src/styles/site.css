@@ -1,0 +1,214 @@
+/* The page: paper, ink and the brand's three faces (brand/BRAND.md). Light only, like paper. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--sh-paper);
+  color: var(--sh-ink);
+  font: 400 17px/1.6 var(--sh-font-body);
+  text-rendering: optimizeLegibility;
+}
+
+.site-header,
+main,
+.site-footer {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding-inline: 24px;
+}
+
+/* clear space around the lockup: half the seal's diameter (the seal is the lockup's height) */
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px 32px;
+  padding-block: 22px;
+}
+.lockup {
+  display: block;
+  line-height: 0;
+}
+.lockup img {
+  width: 220px;
+  height: auto;
+}
+.site-header ul,
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.site-header nav a {
+  font: 500 12px/1 var(--sh-font-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-ink);
+  display: inline-block;
+  padding: 14px 0;
+}
+
+main {
+  display: grid;
+  gap: 72px;
+  padding-block: 32px 80px;
+}
+main > * {
+  min-width: 0;
+}
+section {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+h1,
+h2 {
+  margin: 0;
+  font-family: var(--sh-font-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+h1 {
+  font-size: clamp(30px, 5.5vw, 50px);
+  line-height: 1.1;
+  max-width: 22ch;
+}
+h2 {
+  font-size: clamp(24px, 3.5vw, 32px);
+  line-height: 1.15;
+}
+
+p,
+ul,
+ol {
+  margin: 0;
+  max-width: 64ch;
+}
+ul,
+ol {
+  display: grid;
+  gap: 10px;
+  padding-left: 1.5em;
+}
+li::marker {
+  color: var(--sh-red);
+}
+strong {
+  font-weight: 700;
+}
+code {
+  font-family: var(--sh-font-body);
+  font-weight: 700;
+}
+
+a {
+  color: var(--sh-red);
+  text-underline-offset: 3px;
+}
+a:hover {
+  text-decoration-thickness: 2px;
+}
+:focus-visible {
+  outline: 2px solid var(--sh-ink);
+  outline-offset: 3px;
+}
+
+/* small field labels: table headers, captions, the label above a code block */
+.label {
+  font: 500 12px/1.3 var(--sh-font-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sh-muted);
+}
+
+/* two 3px ink lines, 4px apart */
+.double-rule {
+  height: 10px;
+  border: 0;
+  margin: 0;
+  background: linear-gradient(
+    var(--sh-ink) 0 3px,
+    transparent 3px 7px,
+    var(--sh-ink) 7px 10px
+  );
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -60px;
+  padding: 10px 14px;
+  background: var(--sh-ink);
+  color: var(--sh-paper);
+  font: 500 12px/1 var(--sh-font-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  z-index: 1;
+}
+.skip-link:focus {
+  top: 12px;
+}
+
+.site-footer {
+  display: grid;
+  gap: 20px;
+  padding-block: 0 48px;
+}
+.site-footer::before {
+  content: '';
+  height: 10px;
+  background: linear-gradient(
+    var(--sh-ink) 0 3px,
+    transparent 3px 7px,
+    var(--sh-ink) 7px 10px
+  );
+}
+.footer-install {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  min-width: 0;
+}
+.footer-install code {
+  min-width: 0;
+}
+.footer-links {
+  font-size: 15px;
+}
+
+@media (max-width: 640px) {
+  .site-header {
+    gap: 12px 20px;
+  }
+  .lockup img {
+    width: 180px;
+  }
+}

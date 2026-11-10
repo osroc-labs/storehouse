@@ -1,0 +1,11 @@
+// storehouse runs in Node: its source, its tests and its scripts, and the site's script that runs the CLI.
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "tsBuildInfoFile": "node_modules/.tmp/node.tsbuildinfo"
+  },
+  "include": ["src", "scripts", "lint", "site/scripts"]
+}

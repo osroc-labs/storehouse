@@ -1,0 +1,161 @@
+---
+// README sections as the site shows them, from src/generated/cli-docs.json. Code blocks are
+// printouts with a copy button; a table of three or more columns becomes a form on a phone.
+import type { Block, Part } from '../../scripts/readme.ts';
+import InlineParts from './inline-parts.astro';
+import Printout from './printout.astro';
+
+type Props = { blocks: readonly Block[]; id: string };
+
+const { blocks, id } = Astro.props;
+
+// what a code block is called above it, and in the copy button's announcement
+const codeNames: Record<string, { label: string; what: string }> = {
+  json: { label: 'storehouse.json', what: 'storehouse.json' },
+  sh: { label: 'Shell', what: 'the command' },
+  ts: { label: 'TypeScript', what: 'the code' },
+};
+
+const getPlainText = (parts: readonly Part[]) =>
+  parts.map((part) => part.text).join('');
+---
+
+{
+  blocks.map((block, index) => {
+    const blockId = `${id}-${index}`;
+    if (block.kind === 'paragraph') {
+      return (
+        <p>
+          <InlineParts parts={block.parts} />
+        </p>
+      );
+    }
+    if (block.kind === 'code') {
+      const { label, what } = codeNames[block.lang] ?? {
+        label: 'Code',
+        what: 'the code',
+      };
+      return (
+        <Printout
+          id={blockId}
+          label={label}
+          text={block.text}
+          copy={{ text: block.text, what }}
+        />
+      );
+    }
+    if (block.kind === 'table') {
+      return (
+        <table class:list={['readme-table', { 'is-form': block.head.length > 2 }]}>
+          <thead>
+            <tr>
+              {block.head.map((cell) => (
+                <th scope="col" class="label">
+                  <InlineParts parts={cell} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {block.rows.map((row) => (
+              <tr>
+                {row.map((cell, column) =>
+                  column === 0 ? (
+                    <th scope="row">
+                      <InlineParts parts={cell} />
+                    </th>
+                  ) : (
+                    <td data-label={getPlainText(block.head[column] ?? [])}>
+                      <InlineParts parts={cell} />
+                    </td>
+                  ),
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    }
+    const List = block.isOrdered ? 'ol' : 'ul';
+    return (
+      <List class="readme-list">
+        {block.items.map((item, itemIndex) => (
+          <li>
+            <Astro.self blocks={item} id={`${blockId}-${itemIndex}`} />
+          </li>
+        ))}
+      </List>
+    );
+  })
+}
+
+<style>
+  .readme-list {
+    max-width: none;
+  }
+  .readme-list > li {
+    min-width: 0;
+    max-width: 64ch;
+  }
+  .readme-list > li > :global(*:not(:first-child)) {
+    margin-top: 12px;
+  }
+  /* an item that holds a printout runs the full width; its text keeps the measure */
+  .readme-list > li:has(figure) {
+    max-width: none;
+  }
+  .readme-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .readme-table th,
+  .readme-table td {
+    padding: 10px 16px 10px 0;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--sh-muted);
+  }
+  .readme-table thead th {
+    padding-top: 0;
+  }
+  .readme-table tbody th {
+    width: 32%;
+    font-weight: 400;
+  }
+  .readme-table.is-form {
+    font-size: 15px;
+  }
+  /* on a phone each row of a wide table becomes a short form: its fields one under another */
+  @media (max-width: 640px) {
+    .is-form thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+    .is-form tr {
+      display: grid;
+      gap: 6px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--sh-muted);
+    }
+    .is-form th,
+    .is-form td {
+      display: block;
+      width: auto;
+      padding: 0;
+      border: 0;
+    }
+    .is-form tbody th {
+      width: auto;
+    }
+    .is-form td::before {
+      content: attr(data-label);
+      display: block;
+      font: 500 11px/1.4 var(--sh-font-label);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+  }
+</style>

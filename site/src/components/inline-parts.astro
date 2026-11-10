@@ -1,0 +1,36 @@
+---
+// A line of README text: its code, bold and links (scripts/readme.ts). Code breaks only at its
+// spaces, so `--force` never splits after its dashes.
+import type { Part } from '../../scripts/readme.ts';
+
+type Props = { parts: readonly Part[] };
+
+const { parts } = Astro.props;
+
+const getCodeWords = (text: string) => text.split(' ');
+---
+
+{
+  parts.map((part) => {
+    // on one line: compressHTML is off, so any line break here would show as a space
+    const code = part.isCode ? (
+      <code>{getCodeWords(part.text).map((word, index) => <>{index > 0 && ' '}<span class="word">{word}</span></>)}</code>
+    ) : (
+      part.text
+    );
+    const strong = part.isStrong ? <strong>{code}</strong> : code;
+    return part.href ? <a href={part.href}>{strong}</a> : strong;
+  })
+}
+
+<style>
+  .word {
+    white-space: nowrap;
+  }
+  /* a table column can be narrower than a long name; there it may break anywhere */
+  :global(td) .word,
+  :global(th) .word {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+</style>

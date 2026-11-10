@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "printWidth": 80,
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    ".claude",
+    "dist",
+    "coverage",
+    "pnpm-lock.yaml",
+    "**/*.md",
+    "schema.json",
+    "site/brand",
+    "site/.astro",
+    "site/src/generated"
+  ]
+}

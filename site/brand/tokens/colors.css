@@ -1,0 +1,14 @@
+/* storehouse colors. Light theme only. */
+:root {
+  --sh-paper:    #FAFAF5;  /* page background */
+  --sh-ink:      #26335C;  /* text, logo, rules */
+  --sh-muted:    #5D6580;  /* labels, captions, secondary text */
+  --sh-greenbar: #DCEBD6;  /* stripes behind terminal output */
+  --sh-canary:   #F4E39C;  /* one callout or section ground, sparingly */
+  --sh-pink:     #F3CDD3;  /* one callout or section ground, sparingly */
+  --sh-red:      #B2393A;  /* small accents: links, the one primary button, markers */
+
+  --sh-font-display: "Marcellus SC", "Marcellus", Georgia, serif;
+  --sh-font-body:    "Courier Prime", "Courier New", Courier, monospace;
+  --sh-font-label:   "IBM Plex Sans", system-ui, sans-serif;
+}

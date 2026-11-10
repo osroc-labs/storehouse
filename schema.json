@@ -1,0 +1,326 @@
+{
+  "$id": "https://cdn.jsdelivr.net/npm/@osroc-labs/storehouse/schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "project": {
+      "description": "The Google Cloud project id that holds the secrets.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{4,28}[a-z0-9]$"
+    },
+    "name": {
+      "description": "How an env and a key become a Secret Manager name, such as 'myapp-{env}-{key}'.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\p{Cc}]*$"
+    },
+    "envs": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]{0,62}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "description": "This env's Google Cloud project, if not the manifest's.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{4,28}[a-z0-9]$"
+          },
+          "protected": {
+            "default": false,
+            "description": "For people only: every command against it needs a terminal and the name typed, and refuses to run under an agent.",
+            "type": "boolean"
+          },
+          "pull": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$))[A-Za-z0-9._/-]+$",
+                "description": "The dotenv file `storehouse pull` writes, relative to storehouse.json. Without one, pull writes .env.<env> beside storehouse.json."
+              }
+            },
+            "required": [
+              "file"
+            ],
+            "additionalProperties": false
+          },
+          "push": {
+            "default": [],
+            "description": "Where `storehouse push` sends the secrets.",
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "to": {
+                      "type": "string",
+                      "const": "cloudflare-workers"
+                    },
+                    "dir": {
+                      "default": ".",
+                      "description": "The Worker's directory, where wrangler finds its config, relative to storehouse.json. Default: storehouse.json's own directory.",
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$))[A-Za-z0-9._/-]+$"
+                    },
+                    "wranglerEnv": {
+                      "description": "Wrangler's --env. Leave it out for the top-level Worker.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+                    }
+                  },
+                  "required": [
+                    "to"
+                  ],
+                  "additionalProperties": false,
+                  "description": "A Cloudflare Worker: one `wrangler secret bulk`, with the values on stdin."
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "to": {
+                      "type": "string",
+                      "const": "github-actions"
+                    },
+                    "repo": {
+                      "description": "owner/name. Default: the repo gh finds from storehouse.json's directory.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][\\w.-]*\\/[\\w.-]+$"
+                    },
+                    "environment": {
+                      "description": "A deployment environment in the repo, for environment secrets.",
+                      "type": "string",
+                      "allOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[^\\p{Cc}]*$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^[^-\\s]"
+                        }
+                      ]
+                    },
+                    "org": {
+                      "description": "An organization, for organization secrets instead of a repo's.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][\\w.-]*$"
+                    },
+                    "visibility": {
+                      "description": "Which repos can read an organization secret.",
+                      "type": "string",
+                      "enum": [
+                        "all",
+                        "private",
+                        "selected"
+                      ]
+                    },
+                    "repos": {
+                      "description": "The repos that can read an organization secret (visibility \"selected\").",
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][\\w.-]*$"
+                      }
+                    },
+                    "app": {
+                      "description": "Which app reads the secrets. Default: actions.",
+                      "type": "string",
+                      "enum": [
+                        "actions",
+                        "dependabot",
+                        "codespaces"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "to"
+                  ],
+                  "additionalProperties": false,
+                  "description": "GitHub Actions secrets: one `gh secret set` per secret, the value on stdin."
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "to": {
+                      "type": "string",
+                      "const": "vercel"
+                    },
+                    "dir": {
+                      "default": ".",
+                      "description": "The linked Vercel project's directory, relative to storehouse.json. Default: storehouse.json's own directory.",
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$))[A-Za-z0-9._/-]+$"
+                    },
+                    "environments": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][\\w.-]*$"
+                      },
+                      "description": "Vercel environments: production, preview, development, or a custom one."
+                    },
+                    "scope": {
+                      "description": "The team, as vercel's --scope.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][\\w.-]*$"
+                    }
+                  },
+                  "required": [
+                    "to",
+                    "environments"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Vercel environment variables: one `vercel env add --force` per secret, the value on stdin. Needs Vercel CLI 64.7 or later."
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "to": {
+                      "type": "string",
+                      "const": "fly"
+                    },
+                    "dir": {
+                      "default": ".",
+                      "description": "The app's directory, where fly.toml is, relative to storehouse.json. Default: storehouse.json's own directory.",
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$))[A-Za-z0-9._/-]+$"
+                    },
+                    "app": {
+                      "description": "The Fly app, as fly's -a. Default: the one in fly.toml.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][\\w.-]*$"
+                    },
+                    "stage": {
+                      "default": false,
+                      "description": "Set the secrets without restarting the app (fly --stage).",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "to"
+                  ],
+                  "additionalProperties": false,
+                  "description": "A Fly app: one `fly secrets import`, with the values on stdin."
+                }
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "The environments, by name."
+    },
+    "secrets": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\p{Cc}]*$",
+            "description": "What the secret is for. Shown by `storehouse status`."
+          },
+          "required": {
+            "default": false,
+            "description": "A missing required secret fails `status` and stops `pull` and `push`.",
+            "type": "boolean"
+          },
+          "envs": {
+            "description": "The envs that use it. Default: all of them.",
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]{0,62}$"
+            }
+          },
+          "pull": {
+            "default": true,
+            "description": "Whether `storehouse pull` writes it.",
+            "type": "boolean"
+          },
+          "push": {
+            "default": true,
+            "description": "Whether `storehouse push` sends it.",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "Its own name pattern, instead of the manifest's, for a secret that's already named.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\p{Cc}]*$"
+          }
+        },
+        "required": [
+          "purpose"
+        ],
+        "additionalProperties": false
+      },
+      "description": "The secrets, by key: the name the app reads."
+    },
+    "workflows": {
+      "default": [],
+      "description": "GitHub Actions that name Secret Manager secrets, for `storehouse check`. Google's get-secretmanager-secrets action is known already.",
+      "maxItems": 64,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "uses": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The action or reusable workflow, as written after `uses:` without its @ref. `*` matches anything: \"my-org/deploy/.github/workflows/*\"."
+          },
+          "inputs": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "name",
+                "names",
+                "labelled",
+                "resource"
+              ]
+            },
+            "description": "Each `with:` input that names secrets (`*` matches anything, as in \"*-secret\"), and how it names them."
+          }
+        },
+        "required": [
+          "uses",
+          "inputs"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "envs",
+    "secrets"
+  ],
+  "additionalProperties": false,
+  "description": "The secrets an app has in each environment (storehouse.json).",
+  "title": "storehouse.json"
+}

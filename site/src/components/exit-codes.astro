@@ -1,0 +1,47 @@
+---
+// The codes the CLI exits with, in the README's words (src/generated/cli-docs.json).
+import InlineParts from './inline-parts.astro';
+import docs from '../generated/cli-docs.json';
+---
+
+<table>
+  <thead>
+    <tr>
+      <th scope="col" class="label">Code</th>
+      <th scope="col" class="label">Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    {
+      docs.exitCodes.map((exit) => (
+        <tr>
+          <th scope="row">{exit.code}</th>
+          <td>
+            <InlineParts parts={exit.meaning} />
+          </td>
+        </tr>
+      ))
+    }
+  </tbody>
+</table>
+
+<style>
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th,
+  td {
+    padding: 10px 16px 10px 0;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--sh-muted);
+  }
+  thead th {
+    padding-top: 0;
+  }
+  tbody th {
+    width: 4em;
+    font-weight: 700;
+  }
+</style>

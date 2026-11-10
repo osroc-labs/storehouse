@@ -1,0 +1,82 @@
+{
+  "name": "@osroc-labs/storehouse",
+  "version": "0.1.0",
+  "description": "A command-line tool for Google Secret Manager: a manifest in the repo, a status table across environments, pulls to .env files and pushes to where secrets run.",
+  "keywords": [
+    "google-cloud",
+    "secret-manager",
+    "secrets",
+    "cli",
+    "dotenv",
+    "cloudflare-workers",
+    "github-actions",
+    "vercel",
+    "fly"
+  ],
+  "homepage": "https://github.com/osroc-labs/storehouse#readme",
+  "bugs": {
+    "url": "https://github.com/osroc-labs/storehouse/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/osroc-labs/storehouse.git"
+  },
+  "license": "MIT",
+  "author": "osroc",
+  "type": "module",
+  "packageManager": "pnpm@12.4.1",
+  "engines": {
+    "node": ">=24"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "bin": {
+    "storehouse": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema.json": "./schema.json"
+  },
+  "files": [
+    "dist",
+    "schema.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.build.json",
+    "prepare": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -b",
+    "test": "node --test --experimental-test-coverage --test-coverage-include='src/**/*.ts' --test-coverage-exclude='src/**/*.test.ts' --test-coverage-exclude='src/testing/**' --test-coverage-lines=97 --test-coverage-branches=90 --test-coverage-functions=97 'src/**/*.test.ts' 'lint/*.test.ts'",
+    "lint": "oxlint && oxfmt --check && knip",
+    "fix": "oxlint --fix && oxfmt",
+    "schema": "node scripts/schema.ts",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm --filter storehouse-site check",
+    "test:live": "node scripts/live.ts"
+  },
+  "dependencies": {
+    "date-fns": "catalog:",
+    "yaml": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@typescript/native": "catalog:",
+    "dotenv": "catalog:",
+    "fast-check": "catalog:",
+    "knip": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
+    "typescript": "catalog:"
+  }
+}

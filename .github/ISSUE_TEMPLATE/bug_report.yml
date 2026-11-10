@@ -1,0 +1,36 @@
+name: Bug report
+description: storehouse did something wrong.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Never paste a secret's value, an access token or a key file. Names are fine.
+  - type: textarea
+    id: command
+    attributes:
+      label: What you ran
+      description: The command line, and the part of storehouse.json it uses.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: The output and the exit code (`echo $?`).
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: '`storehouse --version`, `node --version`, and the OS.'
+    validations:
+      required: true
