@@ -226,6 +226,29 @@ const getGitDirectories = (root: string) => {
     .map((dir) => pathService.getReal(resolve(repo.root, dir)));
 };
 
+// The repo a real path is in, as every worktree of it shares it: git's common dir, the worktree
+// root the path is under, and each worktree git has registered. Undefined outside a repo, or for
+// a worktree git didn't register, as a planted `.git` file pointing into another repo would be.
+const getSharedRepo = (realPath: string) => {
+  const repo = getRepo(realPath);
+  if (repo.kind !== 'repo') return undefined;
+  const commonDir = runGit(repo.root, ['rev-parse', '--git-common-dir']);
+  const listed = runGit(repo.root, ['worktree', 'list', '--porcelain', '-z']);
+  if (!commonDir.isOk || commonDir.out === '' || !listed.isOk) return undefined;
+  const worktrees = listed.out
+    .split('\0')
+    .filter((line) => line.startsWith('worktree '))
+    .map((line) => pathService.getReal(line.slice('worktree '.length)));
+  if (!worktrees.some((worktree) => pathService.isSame(worktree, repo.root))) {
+    return undefined;
+  }
+  return {
+    commonDir: pathService.getReal(resolve(repo.root, commonDir.out)),
+    root: repo.root,
+    worktrees,
+  };
+};
+
 // Whether path is git's own: a `.git` part in any letter case, or inside the git dir of the repo
 // at root. A value written there could break or reconfigure the repo.
 const isGitInternal = (path: string, root: string) => {
@@ -244,6 +267,7 @@ export const gitService = {
   isSurelyUntracked,
   isInternal: isGitInternal,
   getRepoRoot,
+  getSharedRepo,
   getFileState,
   getCommittedText,
   getNearestCommittedText,

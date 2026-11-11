@@ -29,25 +29,58 @@ import { pathService } from './utils/paths.ts';
 
 // A cloned repo's manifest decides which Google Cloud project a typed or pushed value goes to,
 // and may ship the CLI a push hands the values to. So a person trusts each project, and each
-// repo-local CLI by its content, once per manifest; the answers live only in their own config.
+// repo-local CLI by its content, once per manifest, and once for every worktree of a git repo;
+// the answers live only in their own config.
 
 const trustedBinarySchema = z.object({ path: z.string(), sha256: z.string() });
 
-const trustFileSchema = z.object({
+// what a person trusted, by manifest: the projects it sends values to, and the repo-local CLIs a
+// push may hand them to
+const trustListSchema = z.object({
   manifests: z.record(z.string(), z.array(z.string())),
   binaries: z.record(z.string(), z.array(trustedBinarySchema)).default({}),
 });
 
+// A manifest in a git repo is trusted under `repos`, by the git dir every worktree of the repo
+// shares, then by its path in the worktree. The top level holds a manifest outside git, by its
+// real path, and what was trusted that way for any manifest before.
+const trustFileSchema = trustListSchema.extend({
+  repos: z.record(z.string(), trustListSchema).default({}),
+});
+
 type TrustFile = z.infer<typeof trustFileSchema>;
+type TrustList = z.infer<typeof trustListSchema>;
 type TrustedBinary = z.infer<typeof trustedBinarySchema>;
 
-const emptyTrustFile = (): TrustFile => ({ manifests: {}, binaries: {} });
+const emptyTrustFile = (): TrustFile => ({
+  manifests: {},
+  binaries: {},
+  repos: {},
+});
 
 type ProjectUse = { project: string; envs: string[]; names: string[] };
 
-// The person's trust file, refused when it would sit inside the repo the manifest is in: a repo
-// (or a relative XDG_CONFIG_HOME) mustn't be able to supply its own answers.
-const getTrustFilePath = (env: Io['env'], manifestPath: string) => {
+// Where a manifest's trust is kept: its real path, and the repo it's in when git has registered
+// its worktree, with its path there.
+const getTrustPlace = (manifestPath: string) => {
+  const realPath = realpathSync.native(manifestPath);
+  const repo = gitService.getSharedRepo(realPath);
+  return {
+    manifestPath,
+    realPath,
+    repo: repo && {
+      ...repo,
+      entry: relative(repo.root, realPath).split(sep).join('/'),
+    },
+  };
+};
+
+type TrustPlace = ReturnType<typeof getTrustPlace>;
+
+// The person's trust file, refused when it would sit inside the repo the manifest is in, any
+// worktree of it, or its git dir: a repo (or a relative XDG_CONFIG_HOME) mustn't be able to
+// supply its own answers.
+const getTrustFilePath = (env: Io['env'], place: TrustPlace) => {
   const path = join(
     env.XDG_CONFIG_HOME || join(env.HOME ?? homedir(), '.config'),
     'storehouse',
@@ -55,8 +88,11 @@ const getTrustFilePath = (env: Io['env'], manifestPath: string) => {
   );
   const realPath = pathService.getReal(resolve(path));
   const repoRoots = [
-    gitService.getRepoRoot(manifestPath),
-    dirname(manifestPath),
+    gitService.getRepoRoot(place.manifestPath),
+    dirname(place.manifestPath),
+    ...(place.repo === undefined
+      ? []
+      : [place.repo.commonDir, ...place.repo.worktrees]),
   ]
     .filter((root) => root !== undefined)
     .map(pathService.getReal);
@@ -80,8 +116,8 @@ const getBadTrustFileError = (path: string, why: string) =>
 
 // What the person has trusted. A file that's missing trusts nothing; one that's damaged, not a
 // plain file of theirs, or writable by others is an error rather than a silent reset.
-const readTrustFile = (env: Io['env'], manifestPath: string): TrustFile => {
-  const path = getTrustFilePath(env, manifestPath);
+const readTrustFile = (env: Io['env'], place: TrustPlace): TrustFile => {
+  const path = getTrustFilePath(env, place);
   if (!existsSync(path)) return emptyTrustFile();
   const stats = lstatSync(path);
   if (!stats.isFile()) throw getBadTrustFileError(path, "isn't a plain file");
@@ -109,10 +145,10 @@ const readTrustFile = (env: Io['env'], manifestPath: string): TrustFile => {
 // owner-only, written whole by a rename
 const writeTrustFile = (
   env: Io['env'],
-  manifestPath: string,
+  place: TrustPlace,
   trustFile: TrustFile,
 ) => {
-  const path = getTrustFilePath(env, manifestPath);
+  const path = getTrustFilePath(env, place);
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   const tempPath = `${path}.${randomUUID()}.tmp`;
   writeFileSync(tempPath, `${JSON.stringify(trustFile, null, 2)}\n`, {
@@ -122,39 +158,77 @@ const writeTrustFile = (
   renameSync(tempPath, path);
 };
 
+// Each list that may hold the place's trust, with its key there and the worktree a CLI in it is
+// kept relative to: the repo's, then the top level's by the real path.
+const getTrustLists = (trustFile: TrustFile, place: TrustPlace) => [
+  ...(place.repo === undefined
+    ? []
+    : [
+        {
+          list: trustFile.repos[place.repo.commonDir],
+          key: place.repo.entry,
+          root: place.repo.root,
+        },
+      ]),
+  { list: trustFile, key: place.realPath, root: undefined },
+];
+
+// the trust file with the place's own list changed: its repo's, or the top level's outside git
+const updateTrustList = (
+  trustFile: TrustFile,
+  place: TrustPlace,
+  update: (list: TrustList, key: string) => TrustList,
+) => {
+  if (place.repo === undefined) {
+    return { ...trustFile, ...update(trustFile, place.realPath) };
+  }
+  const { commonDir, entry } = place.repo;
+  return {
+    ...trustFile,
+    repos: {
+      ...trustFile.repos,
+      [commonDir]: update(
+        trustFile.repos[commonDir] ?? { manifests: {}, binaries: {} },
+        entry,
+      ),
+    },
+  };
+};
+
 const isProjectTrusted = ({
   env,
-  manifestPath,
+  place,
   project,
 }: {
   env: Io['env'];
-  manifestPath: string;
+  place: TrustPlace;
   project: string;
 }) =>
-  (
-    readTrustFile(env, manifestPath).manifests[
-      realpathSync.native(manifestPath)
-    ] ?? []
-  ).includes(project);
+  getTrustLists(readTrustFile(env, place), place).some(
+    ({ list, key }) => list?.manifests[key]?.includes(project) ?? false,
+  );
 
 const recordTrustedProject = ({
   env,
-  manifestPath,
+  place,
   project,
 }: {
   env: Io['env'];
-  manifestPath: string;
+  place: TrustPlace;
   project: string;
 }) => {
-  const trustFile = readTrustFile(env, manifestPath);
-  const key = realpathSync.native(manifestPath);
-  writeTrustFile(env, manifestPath, {
-    ...trustFile,
-    manifests: {
-      ...trustFile.manifests,
-      [key]: [...new Set([...(trustFile.manifests[key] ?? []), project])],
-    },
-  });
+  const trustFile = readTrustFile(env, place);
+  writeTrustFile(
+    env,
+    place,
+    updateTrustList(trustFile, place, (list, key) => ({
+      ...list,
+      manifests: {
+        ...list.manifests,
+        [key]: [...new Set([...(list.manifests[key] ?? []), project])],
+      },
+    })),
+  );
 };
 
 // each project a set of env and key pairs sends values to, with the envs and names it holds
@@ -192,8 +266,9 @@ const verifyTrustedProjects = async ({
   manifestPath: string;
   projectUses: readonly ProjectUse[];
 }) => {
+  const place = getTrustPlace(manifestPath);
   const untrusted = projectUses.filter(
-    ({ project }) => !isProjectTrusted({ env: io.env, manifestPath, project }),
+    ({ project }) => !isProjectTrusted({ env: io.env, place, project }),
   );
   if (untrusted.length === 0) return;
   const shownPath = relative(io.cwd, manifestPath) || manifestPath;
@@ -220,35 +295,74 @@ const verifyTrustedProjects = async ({
     if (typedProject.trim() !== project) {
       throw getRefusal(`That isn't "${project}". Nothing was done.`);
     }
-    recordTrustedProject({ env: io.env, manifestPath, project });
+    recordTrustedProject({ env: io.env, place, project });
   }
 };
 
-// a repo-local CLI as trust knows it: its real file and what that file holds
-const getBinaryIdentity = (path: string): TrustedBinary => {
+// a repo-local CLI's real file and what it holds, read once
+const readBinary = (path: string) => {
   const realPath = realpathSync.native(path);
+  return { path: realPath, content: readFileSync(realPath) };
+};
+
+type BinaryRead = ReturnType<typeof readBinary>;
+
+const getSha256 = (content: Buffer) =>
+  createHash('sha256').update(content).digest('hex');
+
+// a repo-local CLI as a person is shown it, and as it's hashed again just before it runs
+const getIdentity = ({ path, content }: BinaryRead) =>
+  ({ path, sha256: getSha256(content) }) satisfies TrustedBinary;
+
+const getBinaryIdentity = (path: string) => getIdentity(readBinary(path));
+
+// A sha256 of a CLI that leaves out its worktree's own path, which pnpm writes into each .bin
+// file. Each part between those paths is hashed after its length, so no other content matches.
+const getWorktreeSha256 = (content: Buffer, root: string) => {
+  const hash = createHash('sha256');
+  const rootBytes = Buffer.from(root);
+  let start = 0;
+  for (
+    let at = content.indexOf(rootBytes);
+    at !== -1;
+    at = content.indexOf(rootBytes, start)
+  ) {
+    hash.update(`${at - start}:`).update(content.subarray(start, at));
+    start = at + rootBytes.length;
+  }
+  hash.update(`${content.length - start}:`).update(content.subarray(start));
+  return hash.digest('hex');
+};
+
+// A CLI as a list keeps it. A repo's keeps one in its worktree by its path there and its worktree
+// sha256, so the same CLI in every worktree is one entry; otherwise its real path and sha256.
+const getTrustedForm = (binary: BinaryRead, root: string | undefined) => {
+  if (root === undefined || !pathService.isInside(root, binary.path)) {
+    return getIdentity(binary);
+  }
   return {
-    path: realPath,
-    sha256: createHash('sha256').update(readFileSync(realPath)).digest('hex'),
-  };
+    path: relative(root, binary.path).split(sep).join('/'),
+    sha256: getWorktreeSha256(binary.content, root),
+  } satisfies TrustedBinary;
 };
 
 const isBinaryTrusted = ({
   env,
-  manifestPath,
+  place,
   binary,
 }: {
   env: Io['env'];
-  manifestPath: string;
-  binary: TrustedBinary;
+  place: TrustPlace;
+  binary: BinaryRead;
 }) =>
-  (
-    readTrustFile(env, manifestPath).binaries[
-      realpathSync.native(manifestPath)
-    ] ?? []
-  ).some(
-    (trusted) =>
-      trusted.path === binary.path && trusted.sha256 === binary.sha256,
+  getTrustLists(readTrustFile(env, place), place).some(
+    ({ list, key, root }) => {
+      const form = getTrustedForm(binary, root);
+      return (list?.binaries[key] ?? []).some(
+        (trusted) =>
+          trusted.path === form.path && trusted.sha256 === form.sha256,
+      );
+    },
   );
 
 // whether the CLI at path, as it is now, is trusted for the manifest
@@ -260,31 +374,40 @@ const isBinaryPathTrusted = ({
   env: Io['env'];
   manifestPath: string;
   path: string;
-}) => isBinaryTrusted({ env, manifestPath, binary: getBinaryIdentity(path) });
+}) =>
+  isBinaryTrusted({
+    env,
+    place: getTrustPlace(manifestPath),
+    binary: readBinary(path),
+  });
 
 const recordTrustedBinary = ({
   env,
-  manifestPath,
+  place,
   binary,
 }: {
   env: Io['env'];
-  manifestPath: string;
-  binary: TrustedBinary;
+  place: TrustPlace;
+  binary: BinaryRead;
 }) => {
-  const trustFile = readTrustFile(env, manifestPath);
-  const key = realpathSync.native(manifestPath);
-  writeTrustFile(env, manifestPath, {
-    ...trustFile,
-    binaries: {
-      ...trustFile.binaries,
-      [key]: [
-        ...(trustFile.binaries[key] ?? []).filter(
-          (trusted) => trusted.path !== binary.path,
-        ),
-        binary,
-      ],
-    },
-  });
+  const trustFile = readTrustFile(env, place);
+  const form = getTrustedForm(binary, place.repo?.root);
+  writeTrustFile(
+    env,
+    place,
+    updateTrustList(trustFile, place, (list, key) => ({
+      ...list,
+      binaries: {
+        ...list.binaries,
+        [key]: [
+          ...(list.binaries[key] ?? []).filter(
+            (trusted) => trusted.path !== form.path,
+          ),
+          form,
+        ],
+      },
+    })),
+  );
 };
 
 // Why a person can't be asked here, or undefined when they can.
@@ -324,6 +447,7 @@ const getCommandsToRun = async ({
   isFallbackAllowed: boolean;
 }) => {
   const commandsToRun = new Map<string, CommandToRun>();
+  const place = getTrustPlace(manifestPath);
   const shownManifestPath = relative(io.cwd, manifestPath) || manifestPath;
   for (const command of new Set(commands)) {
     const name = basename(command);
@@ -336,8 +460,9 @@ const getCommandsToRun = async ({
       );
       continue;
     }
-    const binary = getBinaryIdentity(repoPath);
-    if (isBinaryTrusted({ env: io.env, manifestPath, binary })) {
+    const read = readBinary(repoPath);
+    const binary = getIdentity(read);
+    if (isBinaryTrusted({ env: io.env, place, binary: read })) {
       commandsToRun.set(command, binary);
       continue;
     }
@@ -353,7 +478,7 @@ const getCommandsToRun = async ({
       if (typedName.trim() !== name) {
         throw getRefusal(`That isn't "${name}". Nothing was done.`);
       }
-      recordTrustedBinary({ env: io.env, manifestPath, binary });
+      recordTrustedBinary({ env: io.env, place, binary: read });
       commandsToRun.set(command, binary);
       continue;
     }
@@ -387,5 +512,4 @@ export const trustService = {
   isBinaryTrusted: isBinaryPathTrusted,
   getBinaryIdentity,
   getProjectUses,
-  isTrusted: isProjectTrusted,
 };

@@ -8,6 +8,7 @@ import {
   mkdtempSync,
   readFileSync,
   realpathSync,
+  rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
@@ -482,6 +483,119 @@ describe('repo-local CLIs run only once a person trusts them', () => {
         }
       }
     }
+  });
+});
+
+// a repo with its manifest committed, and a second worktree of it somewhere else on disk
+const createWorktreesForTest = () => {
+  const main = createGitRepoForTest();
+  runGitForTest(main, ['add', 'storehouse.json']);
+  runGitForTest(main, ['commit', '-q', '-m', 'manifest']);
+  const dir = mkdtempSync(join(tmpdir(), 'storehouse-worktree-'));
+  // git names a worktree by its directory, so each one's is unique
+  const worktree = join(dir, basename(dir));
+  runGitForTest(main, ['worktree', 'add', '-q', worktree]);
+  return { main, worktree };
+};
+
+// a wrangler in the worktree's worker/node_modules/.bin that, as pnpm's do, names its worktree
+const plantWorktreeWranglerForTest = (worktree: string) => {
+  const bin = join(worktree, 'worker/node_modules/.bin');
+  mkdirSync(bin, { recursive: true });
+  writeRecorderForTest(
+    join(bin, 'wrangler'),
+    join(realpathSync(worktree), 'PLANTED-RAN'),
+  );
+};
+
+describe("trust shared by a repo's worktrees", () => {
+  it('runs a CLI trusted in one worktree from another, and refuses one changed there', async () => {
+    const { main, worktree } = createWorktreesForTest();
+    plantWorktreeWranglerForTest(main);
+    plantWorktreeWranglerForTest(worktree);
+    fake.seed(project, 'acme-stage-AUTH_SECRET', 'auth-value');
+    const config = mkdtempSync(join(tmpdir(), 'storehouse-config-'));
+    const person = { PATH: '/usr/bin:/bin', XDG_CONFIG_HOME: config };
+    const agent = { ...person, CLAUDECODE: '1' };
+    const trusted = await runStorehouseForTest(['trust'], {
+      cwd: main,
+      env: person,
+      tty: true,
+      answers: ['acme-test', 'wrangler'],
+    });
+    assert.equal(trusted.code, ExitCode.ok, trusted.stderr());
+
+    const pushed = await runStorehouseForTest(['push', 'stage'], {
+      cwd: worktree,
+      fake,
+      env: agent,
+    });
+    assert.equal(pushed.code, ExitCode.ok, pushed.stderr());
+    assert.equal(existsSync(join(worktree, 'PLANTED-RAN')), true);
+    assert.equal(existsSync(join(main, 'PLANTED-RAN')), false);
+
+    appendFileSync(
+      join(worktree, 'worker/node_modules/.bin/wrangler'),
+      '# changed\n',
+    );
+    rmSync(join(worktree, 'PLANTED-RAN'));
+    const changed = await runStorehouseForTest(['push', 'stage'], {
+      cwd: worktree,
+      fake,
+      env: agent,
+    });
+    assert.equal(changed.code, ExitCode.refused);
+    assert.match(changed.stderr(), /The repo's own wrangler .* isn't trusted/);
+    assert.equal(existsSync(join(worktree, 'PLANTED-RAN')), false);
+  });
+
+  it("won't let a planted .git file borrow a trusted repo's trust", async () => {
+    const { main, worktree } = createWorktreesForTest();
+    const config = mkdtempSync(join(tmpdir(), 'storehouse-config-'));
+    const trusted = await runStorehouseForTest(['trust'], {
+      cwd: main,
+      env: { XDG_CONFIG_HOME: config },
+      tty: true,
+      answers: ['acme-test'],
+    });
+    assert.equal(trusted.code, ExitCode.ok, trusted.stderr());
+    for (const gitDir of [
+      join(realpathSync(main), '.git/worktrees', basename(worktree)),
+      join(realpathSync(main), '.git'),
+    ]) {
+      const planted = createRepoForTest();
+      writeFileSync(join(planted, '.git'), `gitdir: ${gitDir}\n`);
+      const r = await runStorehouseForTest(['set', 'dev', 'AUTH_SECRET'], {
+        cwd: planted,
+        fake,
+        env: { XDG_CONFIG_HOME: config, CLAUDECODE: '1' },
+        stdin: 'v',
+      });
+      assert.equal(r.code, ExitCode.refused, gitDir);
+      assert.match(r.stderr(), /hasn't been trusted for it/);
+    }
+    assert.deepEqual(fake.requests, []);
+  });
+
+  it('refuses a trust file inside any worktree of the repo', async () => {
+    const { main, worktree } = createWorktreesForTest();
+    for (const [cwd, config] of [
+      [worktree, join(main, 'config')],
+      [main, join(worktree, 'config')],
+    ] as const) {
+      const r = await runStorehouseForTest(['set', 'dev', 'AUTH_SECRET'], {
+        cwd,
+        fake,
+        env: { XDG_CONFIG_HOME: config },
+        stdin: 'v',
+      });
+      assert.equal(r.code, ExitCode.failed);
+      assert.match(
+        r.stderr(),
+        /would be inside the repo, so storehouse won't use it/,
+      );
+    }
+    assert.deepEqual(fake.requests, []);
   });
 });
 
