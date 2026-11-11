@@ -14,6 +14,7 @@ import { ExitCode } from '../errors.ts';
 import { fakeSecretManager } from '../testing/fake-secret-manager.ts';
 import type { Fake } from '../testing/fake-secret-manager.ts';
 import {
+  createConfigWithTrustForTest,
   createRepoForTest,
   fakeManifest,
   runStorehouseForTest,
@@ -184,20 +185,105 @@ describe('trust in a git repo', () => {
   it('still honours trust kept by the real path, for that checkout only', async () => {
     const main = createCommittedRepoForTest();
     const worktree = addWorktreeForTest(main);
-    const config = createConfigForTest();
-    mkdirSync(join(config, 'storehouse'));
-    writeFileSync(
-      join(config, 'storehouse/trusted-projects.json'),
-      JSON.stringify({
-        manifests: {
-          [realpathSync(join(main, 'storehouse.json'))]: ['acme-test'],
-        },
-      }),
-      { mode: 0o600 },
-    );
+    const config = createConfigWithTrustForTest({
+      manifests: {
+        [realpathSync(join(main, 'storehouse.json'))]: ['acme-test'],
+      },
+    });
     const r = await setAsAgentForTest(main, config);
     assert.equal(r.code, ExitCode.ok, r.stderr());
     const other = await setAsAgentForTest(worktree, config);
     assert.equal(other.code, ExitCode.refused);
+  });
+
+  it('asks again about a project trusted only by the real path, and moves it to the repo', async () => {
+    const main = createCommittedRepoForTest();
+    const worktree = addWorktreeForTest(main);
+    const elsewhere = join(createRepoForTest(), 'storehouse.json');
+    const config = createConfigWithTrustForTest({
+      manifests: {
+        [realpathSync(join(main, 'storehouse.json'))]: ['acme-test', 'retired'],
+        [elsewhere]: ['acme-test'],
+      },
+    });
+    const trusted = await trustForTest(main, config);
+    assert.equal(trusted.code, ExitCode.ok, trusted.stderr());
+    assert.match(
+      trusted.stderr(),
+      /keeps .*'s secrets in Google Cloud project acme-test/,
+    );
+    // a project the manifest no longer uses stays, as nobody was asked about it
+    assert.deepEqual(readTrustFileForTest(config), {
+      manifests: {
+        [realpathSync(join(main, 'storehouse.json'))]: ['retired'],
+        [elsewhere]: ['acme-test'],
+      },
+      binaries: {},
+      repos: {
+        [realpathSync(join(main, '.git'))]: {
+          manifests: { 'storehouse.json': ['acme-test'] },
+          binaries: {},
+        },
+      },
+    });
+    const r = await setAsAgentForTest(worktree, config);
+    assert.equal(r.code, ExitCode.ok, r.stderr());
+  });
+
+  it('keeps trust by the real path as it was when no one can be asked, or the answer is wrong', async () => {
+    const main = createCommittedRepoForTest();
+    const earlier = {
+      manifests: {
+        [realpathSync(join(main, 'storehouse.json'))]: ['acme-test'],
+      },
+    };
+    const config = createConfigWithTrustForTest(earlier);
+    const agent = await runStorehouseForTest(['trust'], {
+      cwd: main,
+      env: { XDG_CONFIG_HOME: config, CLAUDECODE: '1' },
+      tty: true,
+      answers: ['acme-test'],
+    });
+    assert.equal(agent.code, ExitCode.ok, agent.stderr());
+    const piped = await runStorehouseForTest(['trust'], {
+      cwd: main,
+      env: { XDG_CONFIG_HOME: config },
+    });
+    assert.equal(piped.code, ExitCode.ok, piped.stderr());
+    const wrong = await runStorehouseForTest(['trust'], {
+      cwd: main,
+      env: { XDG_CONFIG_HOME: config },
+      tty: true,
+      answers: ['yes'],
+    });
+    assert.equal(wrong.code, ExitCode.refused);
+    assert.deepEqual(readTrustFileForTest(config), earlier);
+  });
+
+  it('drops trust by the real path that the repo already holds, without asking', async () => {
+    const main = createCommittedRepoForTest();
+    const worktree = addWorktreeForTest(main);
+    const config = createConfigWithTrustForTest({
+      manifests: {
+        [realpathSync(join(main, 'storehouse.json'))]: ['acme-test'],
+      },
+    });
+    assert.equal((await trustForTest(worktree, config)).code, ExitCode.ok);
+    const r = await runStorehouseForTest(['trust'], {
+      cwd: main,
+      env: { XDG_CONFIG_HOME: config },
+      tty: true,
+    });
+    assert.equal(r.code, ExitCode.ok, r.stderr());
+    assert.deepEqual(readTrustFileForTest(config), {
+      manifests: {},
+      binaries: {},
+      repos: {
+        [realpathSync(join(main, '.git'))]: {
+          manifests: { 'storehouse.json': ['acme-test'] },
+          binaries: {},
+        },
+      },
+    });
   });
 });

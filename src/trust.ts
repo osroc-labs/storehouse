@@ -150,8 +150,13 @@ const writeTrustFile = (
 };
 
 // Each list that may hold the place's trust, with its key there and the worktree a CLI in it is
-// kept relative to: the repo's, then the top level's by the real path.
-const getTrustLists = (trustFile: TrustFile, place: TrustPlace) => [
+// kept relative to: the repo's, then the top level's by the real path. In a repo, the top level's
+// is trust kept before repos were, and counts only while isEarlierTrustCounted.
+const getTrustLists = (
+  trustFile: TrustFile,
+  place: TrustPlace,
+  isEarlierTrustCounted: boolean,
+) => [
   ...(place.repo === undefined
     ? []
     : [
@@ -161,7 +166,9 @@ const getTrustLists = (trustFile: TrustFile, place: TrustPlace) => [
           root: place.repo.root,
         },
       ]),
-  { list: trustFile, key: place.realPath, root: undefined },
+  ...(place.repo !== undefined && !isEarlierTrustCounted
+    ? []
+    : [{ list: trustFile, key: place.realPath, root: undefined }]),
 ];
 
 // the trust file with the place's own list changed: its repo's, or the top level's outside git
@@ -190,12 +197,14 @@ const isProjectTrusted = ({
   env,
   place,
   project,
+  isEarlierTrustCounted,
 }: {
   env: Io['env'];
   place: TrustPlace;
   project: string;
+  isEarlierTrustCounted: boolean;
 }) =>
-  getTrustLists(readTrustFile(env, place), place).some(
+  getTrustLists(readTrustFile(env, place), place, isEarlierTrustCounted).some(
     ({ list, key }) => list?.manifests[key]?.includes(project) ?? false,
   );
 
@@ -247,32 +256,54 @@ const getProjectUses = ({
 
 const getRefusal = (message: string) => new CliError(ExitCode.refused, message);
 
+// Why a person can't be asked here, or undefined when they can.
+const getUnaskableReason = (io: Io) => {
+  const marker = getAgentMarker(io.env);
+  if (marker) return `${marker.name} is set (${marker.agent})`;
+  if (!io.stdin.isTTY || !io.stdout.isTTY)
+    return 'there is no terminal to ask in';
+  return undefined;
+};
+
+// Whether a repo's manifest's trust kept by its real path, before repos were, counts: always,
+// except for storehouse trust with a person to ask, who's asked again so it moves to the repo.
+const getIsEarlierTrustCounted = (
+  isTrustCommand: boolean,
+  unaskableReason: string | undefined,
+) => !isTrustCommand || unaskableReason !== undefined;
+
 // Asks the person to trust each project this run would send values to or from, once.
+// isTrustCommand is storehouse trust, which asks again about earlier trust.
 const verifyTrustedProjects = async ({
   io,
   manifestPath,
   projectUses,
+  isTrustCommand,
 }: {
   io: Io;
   manifestPath: string;
   projectUses: readonly ProjectUse[];
+  isTrustCommand: boolean;
 }) => {
   const place = getTrustPlace(manifestPath);
+  const unaskableReason = getUnaskableReason(io);
+  const isEarlierTrustCounted = getIsEarlierTrustCounted(
+    isTrustCommand,
+    unaskableReason,
+  );
   const untrusted = projectUses.filter(
-    ({ project }) => !isProjectTrusted({ env: io.env, place, project }),
+    ({ project }) =>
+      !isProjectTrusted({ env: io.env, place, project, isEarlierTrustCounted }),
   );
   if (untrusted.length === 0) return;
   const shownPath = relative(io.cwd, manifestPath) || manifestPath;
   const projects = untrusted.map((u) => u.project).join(', ');
-  const marker = getAgentMarker(io.env);
-  if (marker) {
+  if (unaskableReason !== undefined) {
+    const marker = getAgentMarker(io.env);
     throw getRefusal(
-      `${shownPath} sends secrets to Google Cloud project ${projects}, which hasn't been trusted for it, and ${marker.name} is set (${marker.agent}). A person trusts a project: they run storehouse trust in their own terminal.`,
-    );
-  }
-  if (!io.stdin.isTTY || !io.stdout.isTTY) {
-    throw getRefusal(
-      `${shownPath} sends secrets to Google Cloud project ${projects}, which hasn't been trusted for it. Run storehouse trust in a terminal once.`,
+      marker
+        ? `${shownPath} sends secrets to Google Cloud project ${projects}, which hasn't been trusted for it, and ${marker.name} is set (${marker.agent}). A person trusts a project: they run storehouse trust in their own terminal.`
+        : `${shownPath} sends secrets to Google Cloud project ${projects}, which hasn't been trusted for it. Run storehouse trust in a terminal once.`,
     );
   }
   for (const { project, envs, names } of untrusted) {
@@ -342,12 +373,14 @@ const isBinaryTrusted = ({
   env,
   place,
   binary,
+  isEarlierTrustCounted,
 }: {
   env: Io['env'];
   place: TrustPlace;
   binary: BinaryRead;
+  isEarlierTrustCounted: boolean;
 }) =>
-  getTrustLists(readTrustFile(env, place), place).some(
+  getTrustLists(readTrustFile(env, place), place, isEarlierTrustCounted).some(
     ({ list, key, root }) => {
       const form = getTrustedForm(binary, root);
       return (list?.binaries[key] ?? []).some(
@@ -371,6 +404,7 @@ const isBinaryPathTrusted = ({
     env,
     place: getTrustPlace(manifestPath),
     binary: readBinary(path),
+    isEarlierTrustCounted: true,
   });
 
 const recordTrustedBinary = ({
@@ -404,15 +438,6 @@ const recordTrustedBinary = ({
   );
 };
 
-// Why a person can't be asked here, or undefined when they can.
-const getUnaskableReason = (io: Io) => {
-  const marker = getAgentMarker(io.env);
-  if (marker) return `${marker.name} is set (${marker.agent})`;
-  if (!io.stdin.isTTY || !io.stdout.isTTY)
-    return 'there is no terminal to ask in';
-  return undefined;
-};
-
 // The CLI a planned command runs as, an absolute real path, and the sha256 a person trusted when
 // it's the repo's own; undefined when it isn't installed anywhere.
 export type CommandToRun = { path: string; sha256?: string } | undefined;
@@ -425,23 +450,29 @@ type PathMatches = {
 
 // What each planned command (a repo-local path, or a name for the PATH) runs as. The repo's own
 // CLI, whether planned or the only one the PATH finds, runs once a person trusts its content for
-// this manifest; otherwise the PATH's outside the repo, said out loud. With isFallbackAllowed
-// false (storehouse trust), one that can't be asked about is refused instead.
+// this manifest; otherwise the PATH's outside the repo, said out loud. For storehouse trust
+// (isTrustCommand), one that can't be asked about is refused instead, and earlier trust is asked
+// about again.
 const getCommandsToRun = async ({
   io,
   manifestPath,
   commands,
   findOnPath,
-  isFallbackAllowed,
+  isTrustCommand,
 }: {
   io: Io;
   manifestPath: string;
   commands: readonly string[];
   findOnPath: (name: string) => PathMatches;
-  isFallbackAllowed: boolean;
+  isTrustCommand: boolean;
 }) => {
   const commandsToRun = new Map<string, CommandToRun>();
   const place = getTrustPlace(manifestPath);
+  const unaskableReason = getUnaskableReason(io);
+  const isEarlierTrustCounted = getIsEarlierTrustCounted(
+    isTrustCommand,
+    unaskableReason,
+  );
   const shownManifestPath = relative(io.cwd, manifestPath) || manifestPath;
   for (const command of new Set(commands)) {
     const name = basename(command);
@@ -456,11 +487,17 @@ const getCommandsToRun = async ({
     }
     const read = readBinary(repoPath);
     const binary = getIdentity(read);
-    if (isBinaryTrusted({ env: io.env, place, binary: read })) {
+    if (
+      isBinaryTrusted({
+        env: io.env,
+        place,
+        binary: read,
+        isEarlierTrustCounted,
+      })
+    ) {
       commandsToRun.set(command, binary);
       continue;
     }
-    const unaskableReason = getUnaskableReason(io);
     if (unaskableReason === undefined) {
       io.stderr.write(
         `${shownManifestPath} would hand values to the repo's own ${name}: ${binary.path} (sha256 ${binary.sha256}).\n`,
@@ -476,10 +513,10 @@ const getCommandsToRun = async ({
       commandsToRun.set(command, binary);
       continue;
     }
-    const fallback = isFallbackAllowed ? onPath.outside : undefined;
+    const fallback = isTrustCommand ? undefined : onPath.outside;
     if (fallback === undefined) {
       throw getRefusal(
-        `The repo's own ${name} (${binary.path}) isn't trusted for ${shownManifestPath}, and ${unaskableReason}${isFallbackAllowed ? `, and there's no ${name} on your PATH outside the repo` : ''}. A person trusts it: they run storehouse trust in their own terminal.`,
+        `The repo's own ${name} (${binary.path}) isn't trusted for ${shownManifestPath}, and ${unaskableReason}${isTrustCommand ? '' : `, and there's no ${name} on your PATH outside the repo`}. A person trusts it: they run storehouse trust in their own terminal.`,
       );
     }
     io.stderr.write(
@@ -488,6 +525,55 @@ const getCommandsToRun = async ({
     commandsToRun.set(command, { path: fallback });
   }
   return commandsToRun;
+};
+
+// a record without one key
+const withoutKey = <T>(record: Record<string, T>, key: string) =>
+  Object.fromEntries(Object.entries(record).filter(([k]) => k !== key));
+
+// Once storehouse trust has trusted, in a repo's list, every project a repo's manifest uses and
+// every repo-local CLI it hands values to, drops what the top level kept for the manifest's real
+// path: those projects, and every version of those CLIs. Only after a person was asked, so
+// nothing trusted only the earlier way is lost to a run that couldn't ask.
+const dropEarlierTrust = ({
+  io,
+  manifestPath,
+  projects,
+  binaryPaths,
+}: {
+  io: Io;
+  manifestPath: string;
+  projects: readonly string[];
+  binaryPaths: readonly string[];
+}) => {
+  if (getUnaskableReason(io) !== undefined) return;
+  const place = getTrustPlace(manifestPath);
+  if (place.repo === undefined) return;
+  const trustFile = readTrustFile(io.env, place);
+  const key = place.realPath;
+  const earlierProjects = trustFile.manifests[key] ?? [];
+  const earlierBinaries = trustFile.binaries[key] ?? [];
+  const keptProjects = earlierProjects.filter((p) => !projects.includes(p));
+  const keptBinaries = earlierBinaries.filter(
+    (b) => !binaryPaths.includes(b.path),
+  );
+  if (
+    keptProjects.length === earlierProjects.length &&
+    keptBinaries.length === earlierBinaries.length
+  ) {
+    return;
+  }
+  writeTrustFile(io.env, place, {
+    ...trustFile,
+    manifests:
+      keptProjects.length === 0
+        ? withoutKey(trustFile.manifests, key)
+        : { ...trustFile.manifests, [key]: keptProjects },
+    binaries:
+      keptBinaries.length === 0
+        ? withoutKey(trustFile.binaries, key)
+        : { ...trustFile.binaries, [key]: keptBinaries },
+  });
 };
 
 // Hashes a trusted CLI again just before it runs, so one swapped since it was trusted doesn't.
@@ -502,6 +588,7 @@ const assertUnchanged = (command: NonNullable<CommandToRun>) => {
 export const trustService = {
   verify: verifyTrustedProjects,
   getCommandsToRun,
+  dropEarlierTrust,
   assertUnchanged,
   isBinaryTrusted: isBinaryPathTrusted,
   getBinaryIdentity,

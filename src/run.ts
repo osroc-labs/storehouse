@@ -132,6 +132,7 @@ const handleCommandLine = async (argv: readonly string[], io: Io) => {
         manifest: loaded.manifest,
         pairs: keys.map((key) => ({ env, key })),
       }),
+      isTrustCommand: false,
     });
   }
   return runCommand();

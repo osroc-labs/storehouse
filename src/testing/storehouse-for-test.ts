@@ -57,6 +57,18 @@ export const createRepoForTest = (
   return root;
 };
 
+// A config directory holding this trust file, owner-only as storehouse writes it.
+export const createConfigWithTrustForTest = (trustFile: unknown) => {
+  const configDir = mkdtempSync(join(tmpdir(), 'storehouse-config-'));
+  mkdirSync(join(configDir, 'storehouse'));
+  writeFileSync(
+    join(configDir, 'storehouse', 'trusted-projects.json'),
+    JSON.stringify(trustFile),
+    { mode: 0o600 },
+  );
+  return configDir;
+};
+
 // A config directory whose trust file trusts what the manifest at cwd uses, as a person who ran
 // storehouse trust would have.
 const createTrustedConfigForTest = (
