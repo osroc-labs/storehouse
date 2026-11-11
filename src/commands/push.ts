@@ -81,8 +81,7 @@ export const handlePush: CommandHandler = ({ io, loaded, line, secrets }) => {
           manifestPath: loaded.path,
           commands: plannedCommands,
           findOnPath,
-          isFallbackAllowed: true,
-          isLegacyAskedAgain: false,
+          isTrustCommand: false,
         });
     const secretsForEnv = await commandService.getSecretsForEnv({
       secrets,

@@ -28,7 +28,7 @@ export const handleTrust = async ({
     io,
     manifestPath: path,
     projectUses,
-    isLegacyAskedAgain: true,
+    isTrustCommand: true,
   });
   const plannedCommands = Object.values(manifest.envs).flatMap((config) =>
     config.push.flatMap((target) =>
@@ -44,12 +44,17 @@ export const handleTrust = async ({
     commands: plannedCommands,
     findOnPath: (name) =>
       cliService.findOnPath({ name, env: io.env, repoRoots }),
-    isFallbackAllowed: false,
-    isLegacyAskedAgain: true,
+    isTrustCommand: true,
   });
   const binaries = [...commandsToRun.values()].flatMap((command) =>
     command?.sha256 === undefined ? [] : [command.path],
   );
+  trustService.dropEarlierTrust({
+    io,
+    manifestPath: path,
+    projects: projectUses.map((u) => u.project),
+    binaryPaths: binaries,
+  });
   io.stdout.write(
     `Trusted for this manifest: ${[...projectUses.map((u) => u.project), ...binaries].join(', ')}.\n`,
   );
