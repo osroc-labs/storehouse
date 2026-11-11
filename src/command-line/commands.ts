@@ -82,7 +82,7 @@ It also warns, without changing the exit code, when an AGENTS.md or CLAUDE.md be
     options: [],
     summary:
       'Trust the Google Cloud projects and repo-local CLIs storehouse.json sends values to.',
-    details: `A manifest decides which Google Cloud project a value you set or push goes to, so the first set or push to a project asks you to trust it for that manifest. This asks for every project at once. It shows each project with the envs and secrets it holds, and you type the project's id to trust it. It also asks about each CLI a push would run from the repo's own node_modules/.bin, showing its real path and sha256; push uses one only once it's trusted, and asks again when its content changes. The answers are kept only in ~/.config/storehouse/trusted-projects.json (or under XDG_CONFIG_HOME), readable only by you.`,
+    details: `A manifest decides which Google Cloud project a value you set or push goes to, so the first set or push to a project asks you to trust it for that manifest. In a git repo, every worktree of the repo shares what you trust. This asks for every project at once. It shows each project with the envs and secrets it holds, and you type the project's id to trust it. It also asks about each CLI a push would run from the repo's own node_modules/.bin, showing its real path and sha256; push uses one only once it's trusted, and asks again when its content changes. The answers are kept only in ~/.config/storehouse/trusted-projects.json (or under XDG_CONFIG_HOME), readable only by you.`,
   },
   protect: {
     args: '<env>',

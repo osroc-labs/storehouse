@@ -1,5 +1,6 @@
 import { ExitCode } from '../errors.ts';
 import type { LoadedManifest } from '../manifest/manifest.ts';
+import { gitService } from '../git.ts';
 import { manifestService } from '../manifest/manifest.ts';
 import { pushTargetService } from '../push-targets/push-targets.ts';
 import { cliService } from '../push-targets/run-cli.ts';
@@ -30,7 +31,7 @@ export const handleTrust = async ({
         .map((invocation) => invocation.command),
     ),
   );
-  const repoRoots = cliService.getRepoRoots(path);
+  const repoRoots = gitService.getRepoRoots(path);
   const commandsToRun = await trustService.getCommandsToRun({
     io,
     manifestPath: path,

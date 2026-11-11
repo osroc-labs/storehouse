@@ -226,6 +226,48 @@ const getGitDirectories = (root: string) => {
     .map((dir) => pathService.getReal(resolve(repo.root, dir)));
 };
 
+// The repo a real path is in, as every worktree of it shares it: git's common dir, the worktree
+// root the path is under, and each worktree git has registered. Undefined outside a repo, or for
+// a worktree git didn't register, as a planted `.git` file pointing into another repo would be.
+const getSharedRepo = (realPath: string) => {
+  const repo = getRepo(realPath);
+  if (repo.kind !== 'repo') return undefined;
+  const commonDir = runGit(repo.root, ['rev-parse', '--git-common-dir']);
+  // without -z, which needs git 2.36; a path with a line break in it just doesn't match
+  const listed = runGit(repo.root, ['worktree', 'list', '--porcelain']);
+  if (!commonDir.isOk || commonDir.out === '' || !listed.isOk) return undefined;
+  const worktrees = listed.out
+    .split('\n')
+    .filter((line) => line.startsWith('worktree '))
+    .map((line) => pathService.getReal(line.slice('worktree '.length)));
+  if (!worktrees.some((worktree) => pathService.isSame(worktree, repo.root))) {
+    return undefined;
+  }
+  return {
+    commonDir: pathService.getReal(resolve(repo.root, commonDir.out)),
+    root: repo.root,
+    worktrees,
+  };
+};
+
+type SharedRepo = ReturnType<typeof getSharedRepo>;
+
+// The real directories that count as the manifest's repo: its worktree root, the manifest's own
+// directory, and the git dir and every worktree of a repo git ties together.
+const getRepoRoots = (
+  manifestPath: string,
+  sharedRepo: SharedRepo = getSharedRepo(realpathSync.native(manifestPath)),
+) =>
+  [
+    getRepoRoot(manifestPath),
+    dirname(manifestPath),
+    ...(sharedRepo === undefined
+      ? []
+      : [sharedRepo.commonDir, ...sharedRepo.worktrees]),
+  ]
+    .filter((root) => root !== undefined)
+    .map(pathService.getReal);
+
 // Whether path is git's own: a `.git` part in any letter case, or inside the git dir of the repo
 // at root. A value written there could break or reconfigure the repo.
 const isGitInternal = (path: string, root: string) => {
@@ -244,6 +286,8 @@ export const gitService = {
   isSurelyUntracked,
   isInternal: isGitInternal,
   getRepoRoot,
+  getSharedRepo,
+  getRepoRoots,
   getFileState,
   getCommittedText,
   getNearestCommittedText,

@@ -1,5 +1,6 @@
 import { basename } from 'node:path';
 import { CliError, ExitCode, getUsageError } from '../errors.ts';
+import { gitService } from '../git.ts';
 import { manifestService } from '../manifest/manifest.ts';
 import type { Manifest } from '../manifest/schema.ts';
 import { pushTargetService } from '../push-targets/push-targets.ts';
@@ -51,7 +52,7 @@ export const handlePush: CommandHandler = ({ io, loaded, line, secrets }) => {
       .getInvocations({ target, root, keys, values: {} })
       .map((invocation) => invocation.command),
   );
-  const repoRoots = cliService.getRepoRoots(loaded.path);
+  const repoRoots = gitService.getRepoRoots(loaded.path);
   const findOnPath = (name: string) =>
     cliService.findOnPath({ name, env: io.env, repoRoots });
   // which file --dry-run says a planned command would run, and whether it still needs trust
