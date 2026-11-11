@@ -8,7 +8,8 @@ import type { Io } from '../terminal/io.ts';
 import { trustService } from '../trust.ts';
 
 // Every project the manifest sends values to, and every repo-local CLI a push would hand them to,
-// trusted once by a person at a terminal.
+// trusted once by a person at a terminal. In a git repo, what was trusted only by the manifest's
+// real path, before trust was kept per repo, is asked about again and moved to the repo's list.
 export const handleTrust = async ({
   io,
   loaded,
@@ -23,7 +24,12 @@ export const handleTrust = async ({
       .map((key) => ({ env, key })),
   );
   const projectUses = trustService.getProjectUses({ manifest, pairs });
-  await trustService.verify({ io, manifestPath: path, projectUses });
+  await trustService.verify({
+    io,
+    manifestPath: path,
+    projectUses,
+    isLegacyAskedAgain: true,
+  });
   const plannedCommands = Object.values(manifest.envs).flatMap((config) =>
     config.push.flatMap((target) =>
       pushTargetService
@@ -39,6 +45,7 @@ export const handleTrust = async ({
     findOnPath: (name) =>
       cliService.findOnPath({ name, env: io.env, repoRoots }),
     isFallbackAllowed: false,
+    isLegacyAskedAgain: true,
   });
   const binaries = [...commandsToRun.values()].flatMap((command) =>
     command?.sha256 === undefined ? [] : [command.path],

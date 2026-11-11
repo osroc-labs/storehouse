@@ -150,8 +150,13 @@ const writeTrustFile = (
 };
 
 // Each list that may hold the place's trust, with its key there and the worktree a CLI in it is
-// kept relative to: the repo's, then the top level's by the real path.
-const getTrustLists = (trustFile: TrustFile, place: TrustPlace) => [
+// kept relative to: the repo's, then the top level's by the real path. In a repo, the top level's
+// is trust kept before repos were, and counts only while isLegacyCounted.
+const getTrustLists = (
+  trustFile: TrustFile,
+  place: TrustPlace,
+  isLegacyCounted: boolean,
+) => [
   ...(place.repo === undefined
     ? []
     : [
@@ -161,7 +166,9 @@ const getTrustLists = (trustFile: TrustFile, place: TrustPlace) => [
           root: place.repo.root,
         },
       ]),
-  { list: trustFile, key: place.realPath, root: undefined },
+  ...(place.repo !== undefined && !isLegacyCounted
+    ? []
+    : [{ list: trustFile, key: place.realPath, root: undefined }]),
 ];
 
 // the trust file with the place's own list changed: its repo's, or the top level's outside git
@@ -186,16 +193,52 @@ const updateTrustList = (
   };
 };
 
+// A record without key's entry when it holds nothing more.
+const setEntry = <T>(record: Record<string, T[]>, key: string, items: T[]) =>
+  items.length === 0
+    ? Object.fromEntries(Object.entries(record).filter(([k]) => k !== key))
+    : { ...record, [key]: items };
+
+// In a repo, the trust file without what the top level kept for the manifest's real path and has
+// now moved to the repo's list.
+const dropMovedLegacy = (
+  trustFile: TrustFile,
+  place: TrustPlace,
+  isMoved: {
+    project?: (project: string) => boolean;
+    binary?: (binary: TrustedBinary) => boolean;
+  },
+): TrustFile => {
+  if (place.repo === undefined) return trustFile;
+  const { project = () => false, binary = () => false } = isMoved;
+  const key = place.realPath;
+  return {
+    ...trustFile,
+    manifests: setEntry(
+      trustFile.manifests,
+      key,
+      (trustFile.manifests[key] ?? []).filter((p) => !project(p)),
+    ),
+    binaries: setEntry(
+      trustFile.binaries,
+      key,
+      (trustFile.binaries[key] ?? []).filter((b) => !binary(b)),
+    ),
+  };
+};
+
 const isProjectTrusted = ({
   env,
   place,
   project,
+  isLegacyCounted,
 }: {
   env: Io['env'];
   place: TrustPlace;
   project: string;
+  isLegacyCounted: boolean;
 }) =>
-  getTrustLists(readTrustFile(env, place), place).some(
+  getTrustLists(readTrustFile(env, place), place, isLegacyCounted).some(
     ({ list, key }) => list?.manifests[key]?.includes(project) ?? false,
   );
 
@@ -209,16 +252,17 @@ const recordTrustedProject = ({
   project: string;
 }) => {
   const trustFile = readTrustFile(env, place);
+  const updated = updateTrustList(trustFile, place, (list, key) => ({
+    ...list,
+    manifests: {
+      ...list.manifests,
+      [key]: [...new Set([...(list.manifests[key] ?? []), project])],
+    },
+  }));
   writeTrustFile(
     env,
     place,
-    updateTrustList(trustFile, place, (list, key) => ({
-      ...list,
-      manifests: {
-        ...list.manifests,
-        [key]: [...new Set([...(list.manifests[key] ?? []), project])],
-      },
-    })),
+    dropMovedLegacy(updated, place, { project: (p) => p === project }),
   );
 };
 
@@ -247,19 +291,35 @@ const getProjectUses = ({
 
 const getRefusal = (message: string) => new CliError(ExitCode.refused, message);
 
-// Asks the person to trust each project this run would send values to or from, once.
+// Why a person can't be asked here, or undefined when they can.
+const getUnaskableReason = (io: Io) => {
+  const marker = getAgentMarker(io.env);
+  if (marker) return `${marker.name} is set (${marker.agent})`;
+  if (!io.stdin.isTTY || !io.stdout.isTTY)
+    return 'there is no terminal to ask in';
+  return undefined;
+};
+
+// Asks the person to trust each project this run would send values to or from, once. With
+// isLegacyAskedAgain (storehouse trust), a person at a terminal is asked again about one a repo's
+// manifest trusts only by its real path, so it moves to the repo's list.
 const verifyTrustedProjects = async ({
   io,
   manifestPath,
   projectUses,
+  isLegacyAskedAgain,
 }: {
   io: Io;
   manifestPath: string;
   projectUses: readonly ProjectUse[];
+  isLegacyAskedAgain: boolean;
 }) => {
   const place = getTrustPlace(manifestPath);
+  const isLegacyCounted =
+    !isLegacyAskedAgain || getUnaskableReason(io) !== undefined;
   const untrusted = projectUses.filter(
-    ({ project }) => !isProjectTrusted({ env: io.env, place, project }),
+    ({ project }) =>
+      !isProjectTrusted({ env: io.env, place, project, isLegacyCounted }),
   );
   if (untrusted.length === 0) return;
   const shownPath = relative(io.cwd, manifestPath) || manifestPath;
@@ -342,12 +402,14 @@ const isBinaryTrusted = ({
   env,
   place,
   binary,
+  isLegacyCounted,
 }: {
   env: Io['env'];
   place: TrustPlace;
   binary: BinaryRead;
+  isLegacyCounted: boolean;
 }) =>
-  getTrustLists(readTrustFile(env, place), place).some(
+  getTrustLists(readTrustFile(env, place), place, isLegacyCounted).some(
     ({ list, key, root }) => {
       const form = getTrustedForm(binary, root);
       return (list?.binaries[key] ?? []).some(
@@ -371,6 +433,7 @@ const isBinaryPathTrusted = ({
     env,
     place: getTrustPlace(manifestPath),
     binary: readBinary(path),
+    isLegacyCounted: true,
   });
 
 const recordTrustedBinary = ({
@@ -384,33 +447,29 @@ const recordTrustedBinary = ({
 }) => {
   const trustFile = readTrustFile(env, place);
   const form = getTrustedForm(binary, place.repo?.root);
+  const updated = updateTrustList(trustFile, place, (list, key) => ({
+    ...list,
+    binaries: {
+      ...list.binaries,
+      // every version stays trusted, since each worktree may have its own
+      [key]: [
+        ...(list.binaries[key] ?? []).filter(
+          (trusted) =>
+            trusted.path !== form.path || trusted.sha256 !== form.sha256,
+        ),
+        form,
+      ],
+    },
+  }));
+  const identity = getIdentity(binary);
   writeTrustFile(
     env,
     place,
-    updateTrustList(trustFile, place, (list, key) => ({
-      ...list,
-      binaries: {
-        ...list.binaries,
-        // every version stays trusted, since each worktree may have its own
-        [key]: [
-          ...(list.binaries[key] ?? []).filter(
-            (trusted) =>
-              trusted.path !== form.path || trusted.sha256 !== form.sha256,
-          ),
-          form,
-        ],
-      },
-    })),
+    dropMovedLegacy(updated, place, {
+      binary: (trusted) =>
+        trusted.path === identity.path && trusted.sha256 === identity.sha256,
+    }),
   );
-};
-
-// Why a person can't be asked here, or undefined when they can.
-const getUnaskableReason = (io: Io) => {
-  const marker = getAgentMarker(io.env);
-  if (marker) return `${marker.name} is set (${marker.agent})`;
-  if (!io.stdin.isTTY || !io.stdout.isTTY)
-    return 'there is no terminal to ask in';
-  return undefined;
 };
 
 // The CLI a planned command runs as, an absolute real path, and the sha256 a person trusted when
@@ -426,22 +485,28 @@ type PathMatches = {
 // What each planned command (a repo-local path, or a name for the PATH) runs as. The repo's own
 // CLI, whether planned or the only one the PATH finds, runs once a person trusts its content for
 // this manifest; otherwise the PATH's outside the repo, said out loud. With isFallbackAllowed
-// false (storehouse trust), one that can't be asked about is refused instead.
+// false (storehouse trust), one that can't be asked about is refused instead. With
+// isLegacyAskedAgain (storehouse trust), a person at a terminal is asked again about one a repo's
+// manifest trusts only by its real path, so it moves to the repo's list.
 const getCommandsToRun = async ({
   io,
   manifestPath,
   commands,
   findOnPath,
   isFallbackAllowed,
+  isLegacyAskedAgain,
 }: {
   io: Io;
   manifestPath: string;
   commands: readonly string[];
   findOnPath: (name: string) => PathMatches;
   isFallbackAllowed: boolean;
+  isLegacyAskedAgain: boolean;
 }) => {
   const commandsToRun = new Map<string, CommandToRun>();
   const place = getTrustPlace(manifestPath);
+  const unaskableReason = getUnaskableReason(io);
+  const isLegacyCounted = !isLegacyAskedAgain || unaskableReason !== undefined;
   const shownManifestPath = relative(io.cwd, manifestPath) || manifestPath;
   for (const command of new Set(commands)) {
     const name = basename(command);
@@ -456,11 +521,12 @@ const getCommandsToRun = async ({
     }
     const read = readBinary(repoPath);
     const binary = getIdentity(read);
-    if (isBinaryTrusted({ env: io.env, place, binary: read })) {
+    if (
+      isBinaryTrusted({ env: io.env, place, binary: read, isLegacyCounted })
+    ) {
       commandsToRun.set(command, binary);
       continue;
     }
-    const unaskableReason = getUnaskableReason(io);
     if (unaskableReason === undefined) {
       io.stderr.write(
         `${shownManifestPath} would hand values to the repo's own ${name}: ${binary.path} (sha256 ${binary.sha256}).\n`,

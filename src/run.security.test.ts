@@ -567,6 +567,99 @@ describe("trust shared by a repo's worktrees", () => {
     }
   });
 
+  it('asks again about a CLI trusted only by the real path, and moves it to the repo', async () => {
+    const { main, worktree } = createWorktreesForTest();
+    plantWorktreeWranglerForTest(main);
+    plantWorktreeWranglerForTest(worktree);
+    fake.seed(project, 'acme-stage-AUTH_SECRET', 'auth-value');
+    const config = mkdtempSync(join(tmpdir(), 'storehouse-config-'));
+    const manifestPath = realpathSync(join(main, 'storehouse.json'));
+    const wrangler = trustService.getBinaryIdentity(
+      join(main, 'worker/node_modules/.bin/wrangler'),
+    );
+    const older = { path: wrangler.path, sha256: '0'.repeat(64) };
+    mkdirSync(join(config, 'storehouse'));
+    writeFileSync(
+      join(config, 'storehouse/trusted-projects.json'),
+      JSON.stringify({
+        manifests: { [manifestPath]: [project] },
+        binaries: { [manifestPath]: [older, wrangler] },
+      }),
+      { mode: 0o600 },
+    );
+    const person = { PATH: '/usr/bin:/bin', XDG_CONFIG_HOME: config };
+    const trusted = await runStorehouseForTest(['trust'], {
+      cwd: main,
+      env: person,
+      tty: true,
+      answers: [project, 'wrangler'],
+    });
+    assert.equal(trusted.code, ExitCode.ok, trusted.stderr());
+    assert.match(
+      trusted.stderr(),
+      /would hand values to the repo's own wrangler/,
+    );
+    // the repo keeps a sha256 that leaves out the worktree's path, so it's shown by its place here
+    const trustFile: unknown = JSON.parse(
+      readFileSync(join(config, 'storehouse/trusted-projects.json'), 'utf8'),
+      (key, value: unknown) =>
+        key === 'sha256' && value !== older.sha256 ? 'in the repo' : value,
+    );
+    assert.deepEqual(trustFile, {
+      manifests: {},
+      binaries: { [manifestPath]: [older] },
+      repos: {
+        [realpathSync(join(main, '.git'))]: {
+          manifests: { 'storehouse.json': [project] },
+          binaries: {
+            'storehouse.json': [
+              {
+                path: 'worker/node_modules/.bin/wrangler',
+                sha256: 'in the repo',
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    const pushed = await runStorehouseForTest(['push', 'stage'], {
+      cwd: worktree,
+      fake,
+      env: { ...person, CLAUDECODE: '1' },
+    });
+    assert.equal(pushed.code, ExitCode.ok, pushed.stderr());
+    assert.equal(existsSync(join(worktree, 'PLANTED-RAN')), true);
+  });
+
+  it('keeps a CLI trusted by the real path trusted when an agent runs storehouse trust', async () => {
+    const { main } = createWorktreesForTest();
+    plantWorktreeWranglerForTest(main);
+    const config = mkdtempSync(join(tmpdir(), 'storehouse-config-'));
+    const manifestPath = realpathSync(join(main, 'storehouse.json'));
+    const legacy = {
+      manifests: { [manifestPath]: [project] },
+      binaries: {
+        [manifestPath]: [
+          trustService.getBinaryIdentity(
+            join(main, 'worker/node_modules/.bin/wrangler'),
+          ),
+        ],
+      },
+    };
+    mkdirSync(join(config, 'storehouse'));
+    const trustFilePath = join(config, 'storehouse/trusted-projects.json');
+    writeFileSync(trustFilePath, JSON.stringify(legacy), { mode: 0o600 });
+    const r = await runStorehouseForTest(['trust'], {
+      cwd: main,
+      env: { PATH: '/usr/bin:/bin', XDG_CONFIG_HOME: config, CLAUDECODE: '1' },
+      tty: true,
+      answers: [project, 'wrangler'],
+    });
+    assert.equal(r.code, ExitCode.ok, r.stderr());
+    assert.deepEqual(JSON.parse(readFileSync(trustFilePath, 'utf8')), legacy);
+  });
+
   it("treats a CLI on the PATH from another worktree of the repo as the repo's own", async () => {
     const { main, worktree } = createWorktreesForTest();
     const bin = join(main, 'tools/bin');
