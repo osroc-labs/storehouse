@@ -86,13 +86,6 @@ const getCliPath = ({
 // whether the command is a repo-local CLI rather than a name looked up on the PATH
 const isRepoLocal = (command: string) => command.includes(sep);
 
-// The real directories a CLI on the PATH mustn't come from without trust: the repo's and the
-// manifest's own.
-const getRepoRoots = (manifestPath: string) =>
-  [gitService.getRepoRoot(manifestPath), dirname(manifestPath)]
-    .filter((root) => root !== undefined)
-    .map(pathService.getReal);
-
 const isExecutableFile = (path: string) => {
   try {
     accessSync(path, constants.X_OK);
@@ -219,7 +212,6 @@ export const cliService = {
   getPath: getCliPath,
   isRepoLocal,
   findOnPath,
-  getRepoRoots,
   format: formatInvocation,
   formatSource,
   run: runCli,

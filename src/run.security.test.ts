@@ -547,6 +547,41 @@ describe("trust shared by a repo's worktrees", () => {
     assert.equal(changed.code, ExitCode.refused);
     assert.match(changed.stderr(), /The repo's own wrangler .* isn't trusted/);
     assert.equal(existsSync(join(worktree, 'PLANTED-RAN')), false);
+
+    // trusting the changed one there keeps the main checkout's trusted too
+    const retrusted = await runStorehouseForTest(['trust'], {
+      cwd: worktree,
+      env: person,
+      tty: true,
+      answers: ['wrangler'],
+    });
+    assert.equal(retrusted.code, ExitCode.ok, retrusted.stderr());
+    for (const cwd of [main, worktree]) {
+      const r = await runStorehouseForTest(['push', 'stage'], {
+        cwd,
+        fake,
+        env: agent,
+      });
+      assert.equal(r.code, ExitCode.ok, r.stderr());
+      assert.equal(existsSync(join(cwd, 'PLANTED-RAN')), true);
+    }
+  });
+
+  it("treats a CLI on the PATH from another worktree of the repo as the repo's own", async () => {
+    const { main, worktree } = createWorktreesForTest();
+    const bin = join(main, 'tools/bin');
+    mkdirSync(bin, { recursive: true });
+    writeRecorderForTest(join(bin, 'wrangler'), join(main, 'SIBLING-RAN'));
+    mkdirSync(join(worktree, 'worker'), { recursive: true });
+    fake.seed(project, 'acme-stage-AUTH_SECRET', 'auth-value');
+    const r = await runStorehouseForTest(['push', 'stage'], {
+      cwd: worktree,
+      fake,
+      env: { PATH: `${bin}:/usr/bin:/bin`, CLAUDECODE: '1' },
+    });
+    assert.equal(r.code, ExitCode.refused);
+    assert.match(r.stderr(), /The repo's own wrangler .* isn't trusted/);
+    assert.equal(existsSync(join(main, 'SIBLING-RAN')), false);
   });
 
   it("won't let a planted .git file borrow a trusted repo's trust", async () => {

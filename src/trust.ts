@@ -66,8 +66,8 @@ const getTrustPlace = (manifestPath: string) => {
   const realPath = realpathSync.native(manifestPath);
   const repo = gitService.getSharedRepo(realPath);
   return {
-    manifestPath,
     realPath,
+    roots: gitService.getRepoRoots(manifestPath, repo),
     repo: repo && {
       ...repo,
       entry: relative(repo.root, realPath).split(sep).join('/'),
@@ -87,18 +87,9 @@ const getTrustFilePath = (env: Io['env'], place: TrustPlace) => {
     'trusted-projects.json',
   );
   const realPath = pathService.getReal(resolve(path));
-  const repoRoots = [
-    gitService.getRepoRoot(place.manifestPath),
-    dirname(place.manifestPath),
-    ...(place.repo === undefined
-      ? []
-      : [place.repo.commonDir, ...place.repo.worktrees]),
-  ]
-    .filter((root) => root !== undefined)
-    .map(pathService.getReal);
   if (
     !isAbsolute(path) ||
-    repoRoots.some((root) => pathService.isInside(root, realPath))
+    place.roots.some((root) => pathService.isInside(root, realPath))
   ) {
     throw new CliError(
       ExitCode.failed,
@@ -317,10 +308,11 @@ const getIdentity = ({ path, content }: BinaryRead) =>
 const getBinaryIdentity = (path: string) => getIdentity(readBinary(path));
 
 // A sha256 of a CLI that leaves out its worktree's own path, which pnpm writes into each .bin
-// file. Each part between those paths is hashed after its length, so no other content matches.
+// file: the root followed by a separator, so /w/app-x isn't read as /w/app. Each part between is
+// hashed after its length, so no other content matches.
 const getWorktreeSha256 = (content: Buffer, root: string) => {
   const hash = createHash('sha256');
-  const rootBytes = Buffer.from(root);
+  const rootBytes = Buffer.from(`${root}${sep}`);
   let start = 0;
   for (
     let at = content.indexOf(rootBytes);
@@ -399,9 +391,11 @@ const recordTrustedBinary = ({
       ...list,
       binaries: {
         ...list.binaries,
+        // every version stays trusted, since each worktree may have its own
         [key]: [
           ...(list.binaries[key] ?? []).filter(
-            (trusted) => trusted.path !== form.path,
+            (trusted) =>
+              trusted.path !== form.path || trusted.sha256 !== form.sha256,
           ),
           form,
         ],

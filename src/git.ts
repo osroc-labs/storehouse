@@ -233,10 +233,11 @@ const getSharedRepo = (realPath: string) => {
   const repo = getRepo(realPath);
   if (repo.kind !== 'repo') return undefined;
   const commonDir = runGit(repo.root, ['rev-parse', '--git-common-dir']);
-  const listed = runGit(repo.root, ['worktree', 'list', '--porcelain', '-z']);
+  // without -z, which needs git 2.36; a path with a line break in it just doesn't match
+  const listed = runGit(repo.root, ['worktree', 'list', '--porcelain']);
   if (!commonDir.isOk || commonDir.out === '' || !listed.isOk) return undefined;
   const worktrees = listed.out
-    .split('\0')
+    .split('\n')
     .filter((line) => line.startsWith('worktree '))
     .map((line) => pathService.getReal(line.slice('worktree '.length)));
   if (!worktrees.some((worktree) => pathService.isSame(worktree, repo.root))) {
@@ -248,6 +249,24 @@ const getSharedRepo = (realPath: string) => {
     worktrees,
   };
 };
+
+type SharedRepo = ReturnType<typeof getSharedRepo>;
+
+// The real directories that count as the manifest's repo: its worktree root, the manifest's own
+// directory, and the git dir and every worktree of a repo git ties together.
+const getRepoRoots = (
+  manifestPath: string,
+  sharedRepo: SharedRepo = getSharedRepo(realpathSync.native(manifestPath)),
+) =>
+  [
+    getRepoRoot(manifestPath),
+    dirname(manifestPath),
+    ...(sharedRepo === undefined
+      ? []
+      : [sharedRepo.commonDir, ...sharedRepo.worktrees]),
+  ]
+    .filter((root) => root !== undefined)
+    .map(pathService.getReal);
 
 // Whether path is git's own: a `.git` part in any letter case, or inside the git dir of the repo
 // at root. A value written there could break or reconfigure the repo.
@@ -268,6 +287,7 @@ export const gitService = {
   isInternal: isGitInternal,
   getRepoRoot,
   getSharedRepo,
+  getRepoRoots,
   getFileState,
   getCommittedText,
   getNearestCommittedText,
